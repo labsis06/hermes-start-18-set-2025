@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="4.0" client="site" method="upgrade">
+	<name>mod_insert_event</name>
+	<author>Luca</author>
+	<version>1.0.0</version>
+	<description>Modulo per inserimento dati in tabella hermes_eventi</description>
+
+	<files>
+		<filename module="mod_insert_event">mod_insert_event.php</filename>
+		<filename>helper.php</filename>
+		<folder>tmpl</folder>
+	</files>
+</extension>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="4.0" client="site" method="upgrade">
+    <name>mod_hermesimporter</name>
+    <title>Hermes Event Importer</title>
+    <description>Importa i dati evento da Wessel</description>
+    <files>
+        <filename module="mod_hermesimporter">mod_hermesimporter.php</filename>
+        <filename>helper.php</filename>
+        <folder>tmpl</folder>
+    </files>
+</extension>

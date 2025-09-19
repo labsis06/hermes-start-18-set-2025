@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" method="upgrade" version="5.0">
+    <name>com_hermeseventi</name>
+    <creationDate>2025-05-20</creationDate>
+    <author>Luca</author>
+    <version>1.0.1</version>
+    <description>Component eventi - Joomla 5</description>
+
+    <namespace path="src">HermesEventi</namespace>
+
+    <scriptfile>src/Extension/HermesEventiComponent.php</scriptfile>
+
+    <files>
+        <folder>src</folder>
+        <filename>extension.php</filename>
+    </files>
+
+    <administration>
+        <menu>Hermes Eventi</menu>
+        <files></files>
+    </administration>
+</extension>

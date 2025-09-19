@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="4.0" client="site" method="upgrade">
+    <name>mod_hermesmanager</name>
+    <title>Hermes Event Manager</title>
+    <description>Gestione completa eventi e immagini</description>
+    <files>
+        <filename module="mod_hermesmanager">mod_hermesmanager.php</filename>
+        <filename>helper.php</filename>
+        <folder>tmpl</folder>
+    </files>
+</extension>
