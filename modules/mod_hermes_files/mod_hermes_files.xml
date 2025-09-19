@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="4.0" client="site" method="upgrade">
+    <name>mod_hermes_files</name>
+    <title>Upload files Hermes</title>
+    <description>Modulo per upload files collegati agli eventi.</description>
+    <version>2.0.0</version>
+    <files>
+        <filename module="mod_hermes_files">mod_hermes_files.php</filename>
+        <filename>helper.php</filename>
+        <folder>tmpl</folder>
+    </files>
+</extension>
