@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="4.0" client="site" method="upgrade">
+    <name>mod_hermes_files_gestione</name>
+    <title>Gestione Files Hermes</title>
+    <description>Modulo per gestire files generici collegati agli eventi (visualizza, elimina, sostituisci).</description>
+    <version>2.0.0</version>
+    <files>
+        <filename module="mod_hermes_files_gestione">mod_hermes_files_gestione.php</filename>
+        <filename>helper.php</filename>
+        <folder>tmpl</folder>
+    </files>
+</extension>
