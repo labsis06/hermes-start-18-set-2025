@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <extension type="module" version="4.0" client="site" method="upgrade">
-    <name>mod_hermesimmagini</name>
+    <name>mod_hermes immagini gestione</name>
     <title>Gestione Immagini Hermes</title>
     <description>Modulo per gestire immagini collegate agli eventi (visualizza, elimina, sostituisci).</description>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
     <files>
-        <filename module="mod_hermesimmagini">mod_hermesimmagini.php</filename>
+        <filename module="mod_hermes_immagini_gestione">mod_hermes_immagini_gestione.php</filename>
         <filename>helper.php</filename>
         <folder>tmpl</folder>
     </files>
