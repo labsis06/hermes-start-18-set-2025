@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <extension type="module" version="4.0" client="site" method="upgrade">
-    <name>mod_hermes immagini gestione</name>
+    <name>mod_hermes_immagini_gestione</name>
     <title>Gestione Immagini Hermes</title>
     <description>Modulo per gestire immagini collegate agli eventi (visualizza, elimina, sostituisci).</description>
     <version>2.0.0</version>
