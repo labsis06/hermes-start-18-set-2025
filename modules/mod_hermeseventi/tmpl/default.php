@@ -278,9 +278,52 @@ foreach ($immagini as $img) {
         <p><strong>ID Evento:</strong> <?php echo nl2br(htmlspecialchars($evento->id)); ?></p>
         <p><strong>Stazione:</strong> <?php echo nl2br(htmlspecialchars($evento->stazione_first)); ?></p>
         <p><strong>Percorso file:</strong> <?php echo htmlspecialchars($evento->percorso_file); ?></p>
+            <?php
+            // Mostra file generici associati tramite tabella hermes_files
+            $db = JFactory::getDbo();
+            $query = $db->getQuery(true)
+                ->select($db->quoteName(array('nome_file', 'percorso_file')))
+                ->from($db->quoteName('hermes_files'))
+                ->where($db->quoteName('id_evento') . ' = ' . (int)$evento->id);
+            $db->setQuery($query);
+            $hermes_files = $db->loadObjectList();
+            if ($hermes_files && count($hermes_files) > 0) {
+                echo '<div class="hermes-files-generici" style="margin:15px 0; padding:10px; background:#f5f5f5; border-radius:8px;">';
+                echo '<strong>File disponibili per questo evento:</strong><ul style="list-style-type: disc; padding-left: 20px;">';
+                foreach ($hermes_files as $file) {
+                    $file_url = JUri::base() . ltrim($file->percorso_file, '/');
+                    echo '<li><a href="' . $file_url . '" download style="color:#333; text-decoration:underline;">' . htmlspecialchars($file->nome_file) . '</a></li>';
+                }
+                echo '</ul></div>';
+            }
+            ?>
     </div>
           </div>
     <?php endforeach; ?>
+
+    <!-- Elenco file generici scaricabili -->
+    <div class="hermes-files-generici" style="margin:30px 0; padding:20px; background:#f5f5f5; border-radius:10px;">
+        <h3 style="color:#007bff;">File generici disponibili</h3>
+        <ul style="list-style-type: disc; padding-left: 20px;">
+        <?php
+            $files_dir = JPATH_BASE . '/files/eventi';
+            $base_url = JUri::base() . 'files/eventi/';
+            if (is_dir($files_dir)) {
+                $files = scandir($files_dir);
+                $found = false;
+                foreach ($files as $file) {
+                    if ($file === 'index.html' || $file[0] === '.') continue;
+                    $found = true;
+                    $file_url = $base_url . rawurlencode($file);
+                    echo '<li><a href="' . $file_url . '" download style="color:#333; text-decoration:underline;">' . htmlspecialchars($file) . '</a></li>';
+                }
+                if (!$found) echo '<li>Nessun file disponibile.</li>';
+            } else {
+                echo '<li>Cartella file non trovata.</li>';
+            }
+        ?>
+        </ul>
+    </div>
 
 
 <div class="popup-buttons">
