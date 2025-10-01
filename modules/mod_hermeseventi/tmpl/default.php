@@ -248,10 +248,7 @@ function filtraEventi() {
         <div class="evento" style="margin-bottom: 20px;">
             <h2><?php echo htmlspecialchars($evento->tipo); ?></h2>
             <?php if (!empty($evento->percorso_file)) : ?>
-                <label>
-                    <input type="checkbox" class="compare-check" data-src="<?php echo JUri::base() . htmlspecialchars($evento->percorso_file, ENT_QUOTES, 'UTF-8'); ?>" onchange="updateComparison(this)">
-                    Confronta
-                </label><br>
+                
                 
 <?php
 $immagini = explode("||", $evento->percorso_file);
