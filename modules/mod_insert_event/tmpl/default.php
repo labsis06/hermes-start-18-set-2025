@@ -20,7 +20,7 @@
 				</div>
 			</div>
 			<div class="form-group row">
-				<label for="ora" class="col-4 col-form-label">Ora</label>
+				<label for="ora" class="col-4 col-form-label">Ora (UTC)</label>
 				<div class="col-8">
 					<input id="ora" name="ora" type="time" class="form-control" required="required" step="1">
 
