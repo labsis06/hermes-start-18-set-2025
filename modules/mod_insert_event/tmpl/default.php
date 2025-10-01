@@ -33,9 +33,10 @@
 					<select id="tipo" name="tipo" class="custom-select" required="required">
 						<option value="terremoto">terremoto</option>
 						<option value="LP">LP</option>
-						<option value="esplosione">esplosione</option>
+						<option value="esplosione artificiale">esplosione artificiale</option>
 						<option value="frana">frana</option>
 						<option value="telesisma">telesisma</option>
+						<option value="sciame">sciame</option>
 						<option value="altro">altro</option>
 					</select>
 				</div>
