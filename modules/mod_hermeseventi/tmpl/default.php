@@ -294,38 +294,12 @@ foreach ($immagini as $img) {
                 echo '</ul></div>';
             }
             ?>
-    </div>
-          </div>
-    <?php endforeach; ?>
-
-    <!-- Elenco file generici scaricabili -->
-    <div class="hermes-files-generici" style="margin:30px 0; padding:20px; background:#f5f5f5; border-radius:10px;">
-        <h3 style="color:#007bff;">File generici disponibili</h3>
-        <ul style="list-style-type: disc; padding-left: 20px;">
-        <?php
-            $files_dir = JPATH_BASE . '/files/eventi';
-            $base_url = JUri::base() . 'files/eventi/';
-            if (is_dir($files_dir)) {
-                $files = scandir($files_dir);
-                $found = false;
-                foreach ($files as $file) {
-                    if ($file === 'index.html' || $file[0] === '.') continue;
-                    $found = true;
-                    $file_url = $base_url . rawurlencode($file);
-                    echo '<li><a href="' . $file_url . '" download style="color:#333; text-decoration:underline;">' . htmlspecialchars($file) . '</a></li>';
-                }
-                if (!$found) echo '<li>Nessun file disponibile.</li>';
-            } else {
-                echo '<li>Cartella file non trovata.</li>';
-            }
-        ?>
-        </ul>
-    </div>
-
-
-
-
-<?php
+    
+ 
+ 
+ 
+ 
+ <?php
             // Mostra pubblicazioni associate tramite tabella hermes_pubblicazioni
             $db = JFactory::getDbo();
             $query = $db->getQuery(true)
@@ -344,35 +318,13 @@ foreach ($immagini as $img) {
                 echo '</ul></div>';
             }
             ?>
-    </div>
+
+</div>
           </div>
-    <?php endforeach; ?>
-
-    <!-- Elenco pubblicazioni scaricabili -->
-    <div class="hermes-pubblicazioni" style="margin:30px 0; padding:20px; background:#f5f5f5; border-radius:10px;">
-        <h3 style="color:#007bff;">Pubblicazioni disponibili</h3>
-        <ul style="list-style-type: disc; padding-left: 20px;">
-        <?php
-            $pub_dir = JPATH_BASE . '/files/pubblicazioni';
-            $base_url = JUri::base() . 'files/pubblicazioni/';
-            if (is_dir($pub_dir)) {
-                $files = scandir($pub_dir);
-                $found = false;
-                foreach ($pub as $pubb) {
-                    if ($pubb === 'index.html' || $pubb[0] === '.') continue;
-                    $found = true;
-                    $pub_url = $base_url . rawurlencode($pubb);
-                    echo '<li><a href="' . $pub_url . '" download style="color:#333; text-decoration:underline;">' . htmlspecialchars($file) . '</a></li>';
-                }
-                if (!$found) echo '<li>Nessun file disponibile.</li>';
-            } else {
-                echo '<li>Cartella file non trovata.</li>';
-            }
-        ?>
-        </ul>
-    </div>
-
-
+    
+<?php endforeach; ?>
+    
+    
 <div class="popup-buttons">
     <button onclick="openComparison()">Apri confronto</button>
 </div>
