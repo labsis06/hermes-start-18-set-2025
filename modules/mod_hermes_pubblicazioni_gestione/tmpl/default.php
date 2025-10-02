@@ -75,9 +75,9 @@ $pubblicazioni = $db->loadObjectList();
                     <div class="col-md-4 mb-4">
                         <div class="card h-100">
                             <div class="card-body">
-                                <h5 class="card-title"><?= htmlspecialchars($f->nome_file) ?></h5>
-                                <p class="card-text"><strong>ID Evento:</strong> <?= (int)$f->id_evento ?></p>
-                                <a href="/<?= htmlspecialchars($f->percorso_file) ?>" target="_blank" class="btn btn-info mb-2 w-100">Scarica/Visualizza</a>
+                                <h5 class="card-title"><?= htmlspecialchars($p->nome_file) ?></h5>
+                                <p class="card-text"><strong>ID Evento:</strong> <?= (int)$p->id_evento ?></p>
+                                <a href="/<?= htmlspecialchars($p->percorso_file) ?>" target="_blank" class="btn btn-info mb-2 w-100">Scarica/Visualizza</a>
                                 <form method="post" enctype="multipart/form-data" class="mb-2">
                                     <input type="hidden" name="replace_pubblicazione_id" value="<?= (int)$p->id ?>">
                                     <input type="file" name="pubblicazione_evento" class="form-control mb-2" required>
