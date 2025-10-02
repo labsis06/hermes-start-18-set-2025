@@ -60,7 +60,7 @@ $query = $db->getQuery(true)
     ->select('*')
     ->from($db->qn('hermes_pubblicazioni'));
 $db->setQuery($query);
-$files_generici = $db->loadObjectList();
+$pubblicazioni = $db->loadObjectList();
 ?>
 
 
