@@ -77,7 +77,7 @@ class ModHermesImporterHelper
         $db = JFactory::getDbo();
         $query = $db->getQuery(true);
 
-        $columns = ['data', 'ora', 'lat', 'lon', 'prof', 'numero_stazioni', 'H_err', 'V_err', 'stazione_near', 'area', 'tipo', 'Md', 'wessel_id'];
+        $columns = ['data', 'ora', 'lat', 'lon', 'prof', 'numero_stazioni', 'H_err', 'V_err', 'stazione_near', 'area', 'tipo', 'Md', 'wessel_id', 'wessel_link'];
         $values = [
             
             $db->quote($data),
@@ -92,7 +92,8 @@ class ModHermesImporterHelper
             $db->quote($area),
             $db->quote($tipo),
             (float)$Md,
-            $db->quote($eventId)
+            $db->quote($eventId),
+            $db->quote($url)
         ];
 
         $query
