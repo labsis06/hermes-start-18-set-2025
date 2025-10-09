@@ -247,6 +247,7 @@ function filtraEventi() {
     <?php foreach ($eventi as $evento): ?>
         <div class="evento" style="margin-bottom: 20px;">
             <h2><?php echo htmlspecialchars($evento->tipo); ?></h2>
+            <h2><?php echo htmlspecialchars($evento->area); ?></h2>
             <?php if (!empty($evento->percorso_file)) : ?>
                 
                 
@@ -268,12 +269,16 @@ foreach ($immagini as $img) {
             <?php endif; ?>
             <p><strong>Data:</strong> <?php echo nl2br(htmlspecialchars($evento->data)); ?></p>
     <p><strong>Ora:</strong> <?php echo nl2br(htmlspecialchars($evento->ora)); ?></p>
-
+    <p><strong>Md:</strong> <?php 
+        $Md = isset($evento->Md) && $evento->Md !== null && $evento->Md !== '' ? $evento->Md : 'ND';
+        echo nl2br(htmlspecialchars($Md)); ?></p>
+    
     <button class="mostra-dettagli-btn">Mostra dettagli</button>
 
     <div class="dettagli" style="display: none;">
         <p><strong>ID Evento:</strong> <?php echo nl2br(htmlspecialchars($evento->id)); ?></p>
-        <p><strong>Stazione:</strong> <?php echo nl2br(htmlspecialchars($evento->stazione_first)); ?></p>
+        <p><strong>Stazione:</strong> <?php $stazione = $evento->stazione_first ?? '';
+         echo nl2br(htmlspecialchars($stazione !== '' ? $stazione : 'ND')); ?></p>
         <p><strong>Percorso file:</strong> <?php echo htmlspecialchars($evento->percorso_file); ?></p>
             <?php
             // Mostra file generici associati tramite tabella hermes_files
@@ -295,10 +300,6 @@ foreach ($immagini as $img) {
             }
             ?>
     
- 
- 
- 
- 
  <?php
             // Mostra pubblicazioni associate tramite tabella hermes_pubblicazioni
             $db = JFactory::getDbo();
