@@ -278,8 +278,70 @@ foreach ($immagini as $img) {
     <div class="dettagli" style="display: none;">
         <p><strong>ID Evento:</strong> <?php echo nl2br(htmlspecialchars($evento->id)); ?></p>
         <p><strong>Stazione:</strong> <?php $stazione = $evento->stazione_first ?? '';
-         echo nl2br(htmlspecialchars($stazione !== '' ? $stazione : 'ND')); ?></p>
-        <p><strong>Percorso file:</strong> <?php echo htmlspecialchars($evento->percorso_file); ?></p>
+         echo nl2br(htmlspecialchars($stazione !== '' ? $stazione : 'ND')); ?>
+        </p>
+        
+        <p><strong>ML:</strong> <?php $ML = $evento->ML ?? '';
+         echo nl2br(htmlspecialchars($ML !== '' ? $ML : 'ND')); ?>
+        </p>
+          
+        <p><strong>Mw:</strong> <?php $Mw = $evento->Mw ?? '';
+         echo nl2br(htmlspecialchars($Mw !== '' ? $Mw : 'ND')); ?>
+        </p>
+        
+        <p><strong>Profondità:</strong> <?php $prof = $evento->prof ?? '';
+         echo nl2br(htmlspecialchars($prof !== '' ? $prof : 'ND')); ?>
+        </p>
+
+        <p><strong>Latitudine:</strong> <?php $lat = $evento->lat ?? '';
+         echo nl2br(htmlspecialchars($lat !== '' ? $lat : 'ND')); ?>
+        </p>
+
+        <p><strong>Longitudine:</strong> <?php $lon = $evento->lon ?? '';
+         echo nl2br(htmlspecialchars($lon !== '' ? $lon : 'ND')); ?>
+        </p>
+
+        <p><strong>Wessel link:</strong>
+        <?php
+        $wessel_link = trim($evento->wessel_link ?? '');
+        if ($wessel_link === '') {
+            echo 'ND';
+        } else {
+            // aggiunge http:// se manca lo schema
+            $url = $wessel_link;
+            if (!preg_match('#^https?://#i', $url)) {
+                $url = 'http://' . $url;
+            }
+            $safe_url = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+            $label = htmlspecialchars($wessel_link, ENT_QUOTES, 'UTF-8');
+            echo '<a href="' . $safe_url . '" target="_blank" rel="noopener noreferrer">' . nl2br($label) . '</a>';
+        }
+        ?>
+        </p>
+
+        
+            
+            <?php
+            // Mostra immagini associate tramite tabella hermes_immagini
+            $db = JFactory::getDbo();
+            $query = $db->getQuery(true)
+                ->select($db->quoteName(array('nome_file', 'percorso_file')))
+                ->from($db->quoteName('hermes_immagini'))
+                ->where($db->quoteName('id_evento') . ' = ' . (int)$evento->id);
+            $db->setQuery($query);
+            $hermes_immag = $db->loadObjectList();
+            if ($hermes_immag && count($hermes_immag) > 0) {
+                echo '<div class="hermes-immagini" style="margin:15px 0; padding:10px; background:#f5f5f5; border-radius:8px;">';
+                echo '<strong>Immagini disponibili per questo evento:</strong><ul style="list-style-type: disc; padding-left: 20px;">';
+                foreach ($hermes_immag as $immag) {
+                    $immag_url = JUri::base() . ltrim($immag->percorso_file, '/');
+                    echo '<li><a href="' . $immag_url . '" download style="color:#333; text-decoration:underline;">' . htmlspecialchars($immag->nome_file) . '</a></li>';
+                }
+                echo '</ul></div>';
+            }
+            ?>
+            
+            
             <?php
             // Mostra file generici associati tramite tabella hermes_files
             $db = JFactory::getDbo();
