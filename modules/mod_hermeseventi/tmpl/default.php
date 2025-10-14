@@ -319,6 +319,9 @@ foreach ($immagini as $img) {
         ?>
         </p>
 
+        <p><strong>Note:</strong> <?php $note = $evento->note ?? '';
+         echo nl2br(htmlspecialchars($note !== '' ? $note : 'ND')); ?>
+        </p>
         
             
             <?php

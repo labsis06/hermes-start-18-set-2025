@@ -7,7 +7,7 @@ class ModHermesEventiHelper
     {
         $db = JFactory::getDbo();
         $query = $db->getQuery(true)
-            ->select('e.id, e.tipo, e.stazione_first, e.area, e.wessel_link, e.Md, e.data, e.ora, GROUP_CONCAT(i.percorso_file SEPARATOR "||") AS percorso_file')
+            ->select('e.id, e.tipo, e.stazione_first, e.area, e.wessel_link, e.Md, e.data, e.note, e.ora, GROUP_CONCAT(i.percorso_file SEPARATOR "||") AS percorso_file')
             ->from($db->qn('hermes_eventi', 'e'))
             ->leftJoin($db->qn('hermes_immagini', 'i') . ' ON i.id_evento = e.id')
             ->group($db->qn('e.id'));
