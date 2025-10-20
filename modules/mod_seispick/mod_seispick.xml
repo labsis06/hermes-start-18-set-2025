@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" version="5.0" client="site" method="upgrade">
+  <name>mod_seispick</name>
+  <version>1.0.0</version>
+  <description>Web picker sismico (demo) per SeisComP</description>
+  <files>
+    <filename module="mod_seispick">mod_seispick.php</filename>
+    <folder>tmpl</folder>
+    <folder>media</folder>
+  </files>
+  <config>
+    <fields name="params">
+      <fieldset name="basic">
+        <field name="bridge_url" type="text" default="http://tapeserver.int.ov.ingv.it:8000" label="Bridge URL" />
+      </fieldset>
+    </fields>
+  </config>
+</extension>
