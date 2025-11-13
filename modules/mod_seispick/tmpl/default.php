@@ -46,6 +46,10 @@ $wa->useScript('mod_seispick.plotly');
     <label>Event ID<br><input id="eventid" placeholder="(facoltativo)" class="form-control" /></label>
     <button id="load" class="btn btn-primary">Carica Traccia</button>
     <button id="send" class="btn btn-success" disabled>Invia Pick</button>
+    <div style="margin-top:15px;">
+    <button id="show-picks" class="btn btn-secondary">📄 Mostra ultimi pick salvati</button>
+    <div id="picks-list" style="margin-top:10px; max-height:200px; overflow:auto; font-size:0.9em; background:#222; color:#eee; padding:8px;"></div>
+  </div>
   </div>
 
   <div id="plot" style="width:100%;height:420px;margin-top:12px;border:1px solid #e5e5e5;border-radius:6px;"></div>
@@ -57,183 +61,137 @@ $wa->useScript('mod_seispick.plotly');
 <script>
 const BRIDGE = "<?php echo htmlspecialchars($bridge, ENT_QUOTES, 'UTF-8'); ?>";
 
-//Variabili runtime
- 
-let currentMeta = null;     // metadati della traccia dal bridge (`network`, `station`, `location`, `channel`, `sampling_rate`, ecc.)
-let lastPickUTC = null;     // ISO string del pick
+let currentMeta = null;
+let lastPickUTC = null;
 
-
- // Helper: formatta Date -> 'YYYY-MM-DDTHH:mm:ss'
- 
-function toLocalInputValue(date) {
-  const pad = n => String(n).padStart(2, '0');
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth()+1)}-${pad(date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
-}
-
-
-  //All’avvio proponiamo una finestra [ora-5m, ora]
- 
-(function initDefaults(){
-  try {
-    const now = new Date();
-    const t1 = new Date(now.getTime());
-    const t0 = new Date(now.getTime() - 5*60*1000);
-    document.getElementById('t0').value = toLocalInputValue(t0);
-    document.getElementById('t1').value = toLocalInputValue(t1);
-  } catch (e) {}
-})();
-
-
- // 1) Carica la traccia dal bridge e disegna il grafico con Plotly
- //    Atteso un JSON del tipo:
- //    {
- //      "times": ["2025-10-20T12:00:00.000Z", ...],
- //      "values": [123, ...],
- //      "meta": {"network":"IV","station":"CBAG","location":"","channel":"HHZ","sampling_rate":100}
- //    }
- 
-
-
+// 1) Carica la traccia
 async function loadTrace(){
   const log = document.getElementById('log');
-  log.textContent = "";
-  document.getElementById('send').disabled = true;
-  lastPickUTC = null;
-  document.getElementById('picked').textContent = "";
-
-  // Normalizza gli orari in UTC con 'Z'
-  const t0 = document.getElementById('t0').value.trim();
-  const t1 = document.getElementById('t1').value.trim();
-  const startIso = new Date(t0 + 'Z').toISOString();
-  const endIso   = new Date(t1 + 'Z').toISOString();
- 
-
-  const payload = {
-    network:  document.getElementById('net').value.trim(),
-    station:  document.getElementById('sta').value.trim(),
-    location: document.getElementById('loc').value.trim(),
-    channel:  document.getElementById('cha').value.trim(),
-    starttime: startIso,
-    endtime:   endIso,
-    decimate:  4
-  };
-
-  // Utils
-  const trimMicro = (iso) => {
-    // converte '...000000Z' in '...000Z' per compatibilità Date()
-    return iso.replace(/\.(\d{3})\d*Z$/, '.$1Z');
-  };
-  const genTimes = (n, startISO, sr) => {
-    const out = new Array(n);
-    const t0 = Date.parse(trimMicro(startISO));
-    const dt = 1000 / sr; // ms
-    for (let i = 0; i < n; i++) {
-      out[i] = new Date(t0 + i*dt).toISOString();
-    }
-    return out;
-  };
-  const decimate = (arr, step) => {
-    if (!step || step <= 1) return arr;
-    const out = new Array(Math.ceil(arr.length/step));
-    let j = 0;
-    for (let i = 0; i < arr.length; i += step) out[j++] = arr[i];
-    return out;
-  };
-
+  log.textContent = 'Caricamento...';
   try {
+    const payload = {
+      network:  document.getElementById('net').value,
+      station:  document.getElementById('sta').value,
+      location: document.getElementById('loc').value,
+      channel:  document.getElementById('cha').value,
+      starttime:document.getElementById('t0').value,
+      endtime:  document.getElementById('t1').value,
+      decimate: 4
+    };
     const res = await fetch(BRIDGE + "/api/trace", {
       method:"POST",
-      mode:"cors",
-      cache:"no-store",
-      headers:{ "Content-Type":"application/json" },
+      headers:{"Content-Type":"application/json"},
       body: JSON.stringify(payload)
     });
-
-    const ct = res.headers.get('content-type') || '';
-    if (!res.ok) {
-      const txt = await res.text().catch(()=>"");
-      log.textContent = `HTTP ${res.status} ${res.statusText}\nCT: ${ct}\nBody:\n${txt}`;
-      return;
-    }
-    if (!ct.includes("application/json")) {
+    if(!res.ok){
       const txt = await res.text();
-      log.textContent = `Atteso JSON ma ricevuto:\nCT: ${ct}\nBody:\n${txt}`;
+      log.textContent = "Errore /api/trace ("+res.status+"): " + txt;
       return;
     }
-
     const data = await res.json();
+    currentMeta = data.meta;
 
-    // ===== Normalizzazione formato =====
-    let times = null, values = null, meta = null;
+    const t0 = new Date(currentMeta.starttime).getTime();
+    const xAbs = data.x.map(s => new Date(t0 + s*1000));
 
-    if (Array.isArray(data.times) && Array.isArray(data.values)) {
-      // Formato già “nuovo” (times/values)
-      times  = data.times;
-      values = data.values;
-      meta   = data.meta || {};
-    } else if (Array.isArray(data.traces) && data.traces.length > 0) {
-      // Formato “trace list” (il tuo)
-      const tr = data.traces[0];
-      const sr = tr.sampling_rate || 100;
-      const n  = tr.npts || (tr.data ? tr.data.length : 0);
-      if (!n || !tr.data || !tr.starttime) {
-        log.textContent = "Trace priva di dati o starttime:\n" + JSON.stringify(tr, null, 2);
-        return;
-      }
-      values = tr.data;
-      times  = genTimes(values.length, tr.starttime, sr);
-
-      // Decimazione lato client se richiesto
-      const step = payload.decimate && payload.decimate > 1 ? payload.decimate : 1;
-      if (step > 1) {
-        times  = decimate(times, step);
-        values = decimate(values, step);
-      }
-
-      // Meta
-      const id = tr.id || "";
-      // id tipo "IV.CSTH..EHZ"
-      const [network="", station="", location="", channel=""] = id.split(".");
-      meta = {
-        network, station, location, channel,
-        sampling_rate: sr / (step || 1)
-      };
-    }
-
-    if (!times || !values || times.length !== values.length) {
-      log.textContent = "JSON ricevuto ma non nel formato atteso:\n" + JSON.stringify(data, null, 2);
-      return;
-    }
-
-    currentMeta = meta || {
-      network: payload.network,
-      station: payload.station,
-      location: payload.location,
-      channel:  payload.channel
-    };
-
-    const trace = {
-      x: times,
-      y: values,
-      mode: 'lines',
-      type: 'scattergl', // più performante con serie lunghe
-      name: `${currentMeta.network}.${currentMeta.station}.${currentMeta.location || ''}.${currentMeta.channel}`
-    };
-    const layout = { margin:{l:50,r:10,t:10,b:40}, xaxis:{title:'Tempo (UTC)'}, yaxis:{title:'Counts'} };
-    Plotly.newPlot('plot', [trace], layout, {responsive:true, displaylogo:false});
-
-    const plotDiv = document.getElementById('plot');
-    plotDiv.on('plotly_click', (evt) => {
-      if (evt?.points?.length) {
-        lastPickUTC = new Date(evt.points[0].x).toISOString();
-        document.getElementById('picked').textContent = lastPickUTC;
-        document.getElementById('send').disabled = false;
-      }
+    Plotly.newPlot("plot", [{
+      x: xAbs, y: data.y, mode: "lines", name: `${currentMeta.station}.${currentMeta.channel}`
+    }], {
+      margin:{l:40,r:10,t:20,b:40},
+      xaxis:{title:"Tempo (UTC)"},
+      yaxis:{title:"Counts"}
     });
 
-    log.textContent = "Traccia caricata ✅ (clicca per scegliere il pick)";
-  } catch (err) {
-    log.textContent = "Eccezione /api/trace: " + (err?.message ?? String(err));
+    const plot = document.getElementById("plot");
+    plot.on("plotly_click", (ev) => {
+      const t = ev.points[0].x;
+      lastPickUTC = new Date(t).toISOString().replace(".000","");
+      document.getElementById("picked").textContent = lastPickUTC;
+      document.getElementById("send").disabled = false;
+    });
+
+    log.textContent = "Traccia caricata.";
+  } catch (e) {
+    // Qui catturiamo CORS/mixed content/network error/JS error
+    log.textContent = "Errore JS: " + (e?.message || e);
   }
 }
+
+// 2) Invia il pick
+async function sendPick(){
+  const log = document.getElementById('log');
+  try {
+    if(!currentMeta || !lastPickUTC){
+      log.textContent = "Nessuna traccia o pick selezionato.";
+      return;
+    }
+    const payload = {
+      event_public_id: document.getElementById('eventid').value,
+      network: currentMeta.network,
+      station: currentMeta.station,
+      location: currentMeta.location || "",
+      channel: currentMeta.channel,
+      phase_hint: document.getElementById('phase').value,
+      pick_time: lastPickUTC,
+      author: document.getElementById('author').value,
+      agency_id: document.getElementById('agency').value
+    };
+    const res = await fetch(BRIDGE + "/api/pick", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+    document.getElementById('send').disabled = true;
+    const txt = await res.text();
+    if(!res.ok){
+      log.textContent = "Errore /api/pick ("+res.status+"): " + txt;
+      return;
+    }
+    log.textContent = txt || "Pick inviato.";
+  } catch(e){
+    log.textContent = "Errore JS: " + (e?.message || e);
+  }
+}
+async function showPicks() {
+  const container = document.getElementById('picks-list');
+  const log = document.getElementById('log');
+
+  try {
+    const res = await fetch(BRIDGE + "/api/picks");
+    if (!res.ok) {
+      const txt = await res.text();
+      container.textContent = "Errore /api/picks (" + res.status + "): " + txt;
+      return;
+    }
+    const picks = await res.json();
+    if (!Array.isArray(picks) || picks.length === 0) {
+      container.textContent = "Nessun pick salvato.";
+      return;
+    }
+
+    // Costruisci un elenco HTML semplice
+    let html = "<ul style='padding-left:18px; margin:0;'>";
+    for (const p of picks) {
+      const st = (p.station || "?");
+      const ch = (p.channel || "?");
+      const ph = (p.phase_hint || "?");
+      const t  = (p.pick_time || "?");
+      const ev = (p.event_public_id || "—");
+      html += "<li>";
+      html += "<b>" + st + "." + ch + "</b> ";
+      html += "(" + ph + ") ";
+      html += "→ " + t + " ";
+      html += "<br/><span style='color:#aaa;'>Evento: " + ev + "</span>";
+      html += "</li>";
+    }
+    html += "</ul>";
+    container.innerHTML = html;
+
+  } catch (e) {
+    container.textContent = "Errore JS mentre leggo i pick: " + (e?.message || e);
+  }
+}
+
+document.getElementById('load').addEventListener('click', loadTrace);
+document.getElementById('send').addEventListener('click', sendPick);
+document.getElementById('show-picks').addEventListener('click', showPicks);
 </script>
