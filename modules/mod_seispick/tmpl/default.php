@@ -169,14 +169,16 @@ async function showPicks() {
     }
 
     // Costruisci un elenco HTML semplice
-    let html = "<ul style='padding-left:18px; margin:0;'>";
+        let html = "<ul style='padding-left:18px; margin:0;'>";
     for (const p of picks) {
       const st = (p.station || "?");
       const ch = (p.channel || "?");
       const ph = (p.phase_hint || "?");
       const t  = (p.pick_time || "?");
       const ev = (p.event_public_id || "—");
-      html += "<li>";
+
+      // ogni <li> porta con sé il pick_time come attributo
+      html += "<li data-pick-time=\"" + t + "\">";
       html += "<b>" + st + "." + ch + "</b> ";
       html += "(" + ph + ") ";
       html += "→ " + t + " ";
@@ -186,10 +188,60 @@ async function showPicks() {
     html += "</ul>";
     container.innerHTML = html;
 
+    // Rende gli elementi cliccabili e collega highlightPick
+    const items = container.querySelectorAll('li[data-pick-time]');
+    items.forEach(li => {
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => {
+        const iso = li.getAttribute('data-pick-time');
+        highlightPick(iso);
+      });
+    });
+
+
   } catch (e) {
     container.textContent = "Errore JS mentre leggo i pick: " + (e?.message || e);
   }
 }
+
+function highlightPick(pickTimeIso) {
+  if (!pickTimeIso) return;
+
+  const plot = document.getElementById('plot');
+  if (!plot || !plot.data || !plot.data.length) {
+    return; // nessuna traccia caricata
+  }
+
+  // Aggiorna lo stato interno del pick selezionato
+  lastPickUTC = pickTimeIso;
+  document.getElementById('picked').textContent = pickTimeIso;
+  document.getElementById('send').disabled = false;
+
+  const t = new Date(pickTimeIso);
+  if (isNaN(t.getTime())) {
+    return; // formato data non valido
+  }
+
+  // Recupera le shapes esistenti e rimuove eventuali vecchie linee di pick
+  const layout = plot.layout || {};
+  const shapes = (layout.shapes || []).filter(s => s.name !== 'pick');
+
+  // Aggiunge una linea verticale sul grafico in corrispondenza del pick
+  shapes.push({
+    type: 'line',
+    x0: t,
+    x1: t,
+    y0: 0,
+    y1: 1,
+    xref: 'x',
+    yref: 'paper',
+    line: { dash: 'dot', width: 2 },
+    name: 'pick'
+  });
+
+  Plotly.relayout('plot', { shapes: shapes });
+}
+
 
 document.getElementById('load').addEventListener('click', loadTrace);
 document.getElementById('send').addEventListener('click', sendPick);
