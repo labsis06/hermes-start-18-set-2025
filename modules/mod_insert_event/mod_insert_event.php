@@ -43,27 +43,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $input->getInt('mod_id') === $modul
     $note('POST ricevuto. upload_max_filesize=' . ini_get('upload_max_filesize') . ', post_max_size=' . ini_get('post_max_size'));
 
     /** Dati evento */
-    $data = [
-        'data'       => $input->getString('data'),
-        'ora'        => $input->getString('ora'),
-        'tipo'       => $input->getString('tipo'),
-        'area'       => $input->getString('area'),
-        'stazione'   => $input->getString('stazione'),
-        'componente' => $input->getString('componente'),
-        'note'       => $input->getString('note'),
-        'Md'         => $input->getString('Md'),
-        'profondita' => $input->getString('profondita'),
-        'lat'        => $input->getString('lat'),
-        'lon'        => $input->getString('lon'),
-    ];
+    try {
+        $data = ModInsertEventHelper::leggiDatiEvento($input);
+    } catch (\InvalidArgumentException $e) {
+        $app->enqueueMessage($e->getMessage(), 'error');
+        require ModuleHelper::getLayoutPath('mod_insert_event', 'default');
+        return;
+    }
     $note('Dati evento principali: tipo=' . ($data['tipo'] ?? '') . ', area=' . ($data['area'] ?? ''));
 
     /** Salva evento */
     $idEvento = null;
     try {
-        $idEvento = ModInsertEventHelper::salvaEvento($data);
+        $duplicatiConfermati = ModInsertEventHelper::consumaTicket(
+            $app->getSession(), $moduleId, $data,
+            $input->getString('event_check_token'), $input->getInt('confirm_duplicate') === 1
+        );
+        $idEvento = ModInsertEventHelper::salvaEvento($data, $duplicatiConfermati);
         if (!$idEvento) { $fail('Salvataggio evento fallito (ID mancante).'); }
         else { $note('Evento inserito con ID='.(int)$idEvento); }
+    } catch (\DomainException | \InvalidArgumentException $e) {
+        $fail($e->getMessage());
     } catch (\Throwable $e) { $fail('Eccezione salvaEvento()', $e); }
 
     if (empty($idEvento)) {
@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $input->getInt('mod_id') === $modul
     if ($errors) {
         $app->enqueueMessage('<b>Operazione completata con errori</b>:<br>'.implode('<br>',$errors), 'error');
     } else {
-        $app->enqueueMessage('Evento salvato (ID: '.(int)$idEvento.') e immagine caricata.', 'message');
+        $app->enqueueMessage('Evento salvato (ID: '.(int)$idEvento.').', 'message');
     }
     if ($notes) {
         $app->enqueueMessage('<b>Dettagli</b>:<br>'.implode('<br>',$notes), 'notice');
