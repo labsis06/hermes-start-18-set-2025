@@ -1,11 +1,31 @@
 <?php
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Factory;
+require_once dirname(__DIR__) . '/mod_insert_event/helper.php';
+
 class ModHermesManagerHelper
 {
+    public static function getCampiModificabili(): array
+    {
+        return [
+            'data' => ['Data', 'date', true], 'ora' => ['Ora (UTC)', 'time', true],
+            'tipo' => ['Tipo di evento', 'text', true], 'area' => ['Area', 'text', true],
+            'stazione_first' => ['Stazione first', 'text', false], 'comp1' => ['Componente', 'text', false],
+            'Md' => ['Magnitudo Md', 'number', false], 'ML' => ['Magnitudo ML', 'number', false],
+            'Mw' => ['Magnitudo Mw', 'number', false], 'prof' => ['Profondità (km)', 'number', false],
+            'lat' => ['Latitudine', 'text', false], 'lon' => ['Longitudine', 'text', false],
+            'numero_stazioni' => ['Numero stazioni', 'integer', false],
+            'H_err' => ['Errore orizzontale', 'number', false], 'V_err' => ['Errore verticale', 'number', false],
+            'stazione_near' => ['Distanza stazione più vicina', 'number', false],
+            'wessel_id' => ['ID Wessel', 'integer', false], 'wessel_link' => ['Wessel link', 'text', false],
+            'link_aggiuntivi' => ['Link aggiuntivi', 'textarea', false], 'note' => ['Note', 'textarea', false],
+        ];
+    }
+
     public static function getEvento($id)
     {
-        $db = JFactory::getDbo();
+        $db = Factory::getDbo();
         $query = $db->getQuery(true)
                     ->select('*')
                     ->from($db->qn('hermes_eventi'))
@@ -16,7 +36,7 @@ class ModHermesManagerHelper
 
     public static function getImmagini($id_evento)
     {
-        $db = JFactory::getDbo();
+        $db = Factory::getDbo();
         $query = $db->getQuery(true)
                     ->select('*')
                     ->from($db->qn('hermes_immagini'))
@@ -27,7 +47,7 @@ class ModHermesManagerHelper
 
     public static function deleteEvento($id)
     {
-        $db = JFactory::getDbo();
+        $db = Factory::getDbo();
         $db->setQuery("DELETE FROM hermes_immagini WHERE id_evento = " . (int)$id)->execute();
         $db->setQuery("DELETE FROM hermes_eventi WHERE id = " . (int)$id)->execute();
         return "Evento e immagini eliminati correttamente.";
@@ -35,24 +55,53 @@ class ModHermesManagerHelper
 
     public static function updateEvento($data)
     {
-        $fields = ['data','ora','tipo','stazione_first','comp1','note','wessel_link','area','Md','ML','Mw','wessel_id','prof','lat','lon','numero_stazioni','H_err','V_err','stazione_near'];
-        $db = JFactory::getDbo();
+        $id = (int) ($data['id'] ?? 0);
+        $existing = $id > 0 ? self::getEvento($id) : null;
+        if (!$existing) {
+            throw new \DomainException('Evento non trovato. Controllare l’ID.');
+        }
+        $when = ModInsertEventHelper::normalizzaDataOra(
+            (string) ($data['data'] ?? $existing['data']), (string) ($data['ora'] ?? $existing['ora'])
+        );
+        $db = Factory::getDbo();
         $query = $db->getQuery(true);
         $sets = [];
-        foreach ($fields as $field) {
-            $val = isset($data[$field]) ? $db->quote($data[$field]) : 'NULL';
-            $sets[] = $db->qn($field) . ' = ' . $val;
+        foreach (self::getCampiModificabili() as $field => [$label, $type, $required]) {
+            // Un campo omesso non cancella il valore esistente; uno vuoto lo rimuove.
+            if (!array_key_exists($field, $data)) {
+                continue;
+            }
+            if (!is_scalar($data[$field]) && $data[$field] !== null) {
+                throw new \InvalidArgumentException('Valore non valido per ' . $label . '.');
+            }
+            $value = trim((string) $data[$field]);
+            if ($required && $value === '') {
+                throw new \InvalidArgumentException('Il campo ' . $label . ' è obbligatorio.');
+            }
+            if (isset($when[$field])) {
+                $value = $when[$field];
+            } elseif ($field === 'link_aggiuntivi') {
+                $value = ModInsertEventHelper::normalizzaLinkAggiuntivi($value);
+            } elseif ($value !== '' && $type === 'integer' && !preg_match('/^\d+$/D', $value)) {
+                throw new \InvalidArgumentException('Il campo ' . $label . ' richiede un numero intero non negativo.');
+            } elseif ($value !== '' && $type === 'number' && (!is_numeric($value) || !is_finite((float) $value))) {
+                throw new \InvalidArgumentException('Il campo ' . $label . ' richiede un numero valido.');
+            }
+            $sets[] = $db->qn($field) . ' = ' . ($value === '' ? 'NULL' : $db->quote($value));
+        }
+        if (!$sets) {
+            return 'Nessun campo da modificare.';
         }
         $query->update($db->qn('hermes_eventi'))
               ->set($sets)
-              ->where($db->qn('id') . ' = ' . (int)$data['id']);
+              ->where($db->qn('id') . ' = ' . $id);
         $db->setQuery($query)->execute();
         return "Evento aggiornato con successo.";
     }
 
     public static function deleteImmagine($img_id)
     {
-        $db = JFactory::getDbo();
+        $db = Factory::getDbo();
         $query = $db->getQuery(true)->select('*')->from('hermes_immagini')->where('id=' . (int)$img_id);
         $db->setQuery($query);
         $img = $db->loadAssoc();
@@ -78,7 +127,7 @@ class ModHermesManagerHelper
         if (!move_uploaded_file($file['tmp_name'], $targetFile)) {
             return "Impossibile salvare il file.";
         }
-        $db = JFactory::getDbo();
+        $db = Factory::getDbo();
         $columns = ['id_evento', 'nome_file', 'percorso_file'];
         $values = [
             (int)$event_id,
