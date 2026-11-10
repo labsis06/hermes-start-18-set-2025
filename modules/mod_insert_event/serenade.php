@@ -1,4 +1,68 @@
-return strlen($line);
+<?php
+defined('_JEXEC') or die;
+
+/** Messaggi diagnostici controllati: non contengono URL, cookie o corpi remoti. */
+class ModInsertEventSerenadeError extends \RuntimeException
+{
+}
+
+/** Ricerca Wessel: sessione privata per richiesta, POST filtri e GET risultati. */
+class ModInsertEventSerenade
+{
+    public static function cerca(array $data, string $url, bool $completa = false, ?callable $request = null): array
+    {
+        $unknown = static fn(string $detail) => ['status' => 'unknown', 'ids' => [], 'detail' => $detail];
+        if (($data['tipo'] ?? '') !== 'terremoto') {
+            return $unknown('La ricerca del portale è verificata per i terremoti; questo tipo di evento non è ancora supportato.');
+        }
+        $curl = null;
+        $phase = 'configurazione';
+        try {
+            $parts = parse_url(trim($url));
+            if (!$parts || !isset($parts['host']) || isset($parts['user']) || isset($parts['pass'])
+                || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)) {
+                throw new ModInsertEventSerenadeError('CONFIG_URL: URL del portale non valido.');
+            }
+            $base = $parts['scheme'] . '://' . $parts['host']
+                . (isset($parts['port']) ? ':' . $parts['port'] : '') . ($parts['path'] ?? '/');
+            if ($request === null) {
+                if (!function_exists('curl_init')) {
+                    return $unknown('Per interrogare il portale Serenade è necessaria l’estensione PHP cURL.');
+                }
+                $curl = curl_init();
+                if ($curl === false) {
+                    $curl = null;
+                    throw new ModInsertEventSerenadeError('CURL_INIT: impossibile avviare cURL.');
+                }
+                curl_setopt_array($curl, [
+                    CURLOPT_COOKIEFILE => '', // Cookie in memoria: nessun cookie del browser o file condiviso.
+                    CURLOPT_FOLLOWLOCATION => false,
+                    CURLOPT_CONNECTTIMEOUT => 5,
+                    CURLOPT_SSL_VERIFYPEER => true,
+                    CURLOPT_SSL_VERIFYHOST => 2,
+                    CURLOPT_USERAGENT => 'Hermes Joomla Serenade check',
+                    CURLOPT_HTTPHEADER => ['Accept: application/json', 'Expect:'],
+                ]);
+                $deadline = microtime(true) + 30;
+                $request = static function (string $method, string $target, array $fields = []) use ($curl, $deadline): array {
+                    $body = '';
+                    $headers = [];
+                    $tooLarge = false;
+                    $remaining = (int) ceil($deadline - microtime(true));
+                    if ($remaining <= 0) {
+                        throw new ModInsertEventSerenadeError('TIMEOUT_TOTAL: tempo massimo della ricerca esaurito (30 secondi).');
+                    }
+                    curl_setopt_array($curl, [
+                        CURLOPT_URL => $target,
+                        CURLOPT_TIMEOUT => min(15, $remaining),
+                        CURLOPT_HEADERFUNCTION => static function ($handle, string $line) use (&$headers): int {
+                            if (stripos($line, 'HTTP/') === 0) {
+                                $headers = [];
+                            } elseif (strpos($line, ':') !== false) {
+                                [$name, $value] = explode(':', $line, 2);
+                                $headers[strtolower(trim($name))] = trim($value);
+                            }
+                            return strlen($line);
                         },
                         CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$body, &$tooLarge): int {
                             if (strlen($body) + strlen($chunk) > 16 * 1024 * 1024) {
