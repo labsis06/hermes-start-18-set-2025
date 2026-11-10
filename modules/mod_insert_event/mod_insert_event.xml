@@ -2,7 +2,7 @@
 <extension type="module" version="4.0" client="site" method="upgrade">
 	<name>mod_insert_event</name>
 	<author>Luca</author>
-	<version>1.2.0</version>
+	<version>1.3.0</version>
 	<description>Modulo per inserimento dati in tabella hermes_eventi</description>
 
 	<files>
@@ -10,11 +10,13 @@
 		<filename>helper.php</filename>
 		<filename>serenade.php</filename>
 		<folder>tmpl</folder>
+		<folder>sql</folder>
 	</files>
 	<config>
 		<fields name="params">
 			<fieldset name="serenade" label="Controllo Serenade">
-				<field name="serenade_mode" type="list" label="Metodo di ricerca" default="portal">
+				<field name="serenade_mode" type="list" label="Metodo di ricerca" default="off">
+					<option value="off">Disattivato — controlla solo il database locale</option>
 					<option value="portal">Portale Wessel: POST filtri e GET risultati</option>
 					<option value="json">Endpoint JSON diretto (GET)</option>
 				</field>
@@ -24,6 +26,7 @@
 					showon="serenade_mode:json"
 					description="Endpoint JSON dell'elenco o della ricerca. Segnaposto disponibili: {data}, {ora}, {inizio}, {fine} (UTC, intervallo di un secondo). Un URL con ID fisso verifica solo gli eventi restituiti. Confermare l'endpoint con la documentazione dell'API." />
 				<field name="serenade_complete" type="radio" layout="joomla.form.field.radio.switcher" label="Risposta completa per l'istante cercato" default="0"
+					showon="serenade_mode:portal,json"
 					description="Attivare solo se l'endpoint restituisce tutti gli eventi dell'istante richiesto, senza pagine mancanti o limiti. Altrimenti nessun risultato è indicato come verifica incompleta, non come assenza dal database.">
 					<option value="0">JNO</option>
 					<option value="1">JYES</option>

@@ -145,6 +145,16 @@
 </div>
   
   <div class="form-group row">
+    <label for="link-aggiuntivi-<?php echo (int) $module->id; ?>" class="col-4 col-form-label">Link aggiuntivi</label>
+    <div class="col-8">
+        <textarea id="link-aggiuntivi-<?php echo (int) $module->id; ?>" name="link_aggiuntivi" class="form-control" rows="3"
+            aria-describedby="link-aggiuntivi-help-<?php echo (int) $module->id; ?>"
+            placeholder="https://esempio.it/informazioni-evento"></textarea>
+        <small id="link-aggiuntivi-help-<?php echo (int) $module->id; ?>" class="form-text text-muted">Facoltativo. Inserisci un indirizzo completo http:// o https:// per riga.</small>
+    </div>
+  </div>
+
+  <div class="form-group row">
     <label for="immagine" class="col-4 col-form-label">Immagini</label>
     <div class="col-8">
         <input id="immagine" name="immagine" type="file" accept="image/*" class="form-control">
@@ -219,10 +229,14 @@
                         lines.push('Serenade: evento già presente. ID: ' + checked.serenade.ids.join(', ') + '.');
                     } else if (checked.serenade.status === 'not_found') {
                         lines.push('Serenade: nessun evento con la stessa data e ora.');
+                    } else if (checked.serenade.status === 'disabled') {
+                        lines.push('Wessel/Serenade: controllo disattivato.');
                     } else {
                         lines.push('Serenade: presenza non verificata. ' + checked.serenade.detail);
                     }
-                    lines.push('Il confronto è effettuato al secondo; le frazioni di secondo Serenade sono ignorate.');
+                    lines.push(checked.serenade.status === 'disabled'
+                        ? 'Il confronto locale è effettuato al secondo.'
+                        : 'Il confronto è effettuato al secondo; le frazioni di secondo Serenade sono ignorate.');
                     dialog.querySelector('[data-check-details]').textContent = lines.join('\n\n');
                     dialog.returnValue = '';
                     const decision = new Promise(resolve => dialog.addEventListener('close', () => resolve(dialog.returnValue === 'continue'), {once: true}));
