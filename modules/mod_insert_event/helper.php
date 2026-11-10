@@ -6,6 +6,8 @@ use Joomla\CMS\Filesystem\File;
 use Joomla\CMS\Filesystem\Folder;
 use Joomla\CMS\Log\Log;
 
+require_once __DIR__ . '/serenade.php';
+
 class ModInsertEventHelper
 {
     /** Date e ore del form sono UTC, con precisione al secondo. */
@@ -133,7 +135,9 @@ class ModInsertEventHelper
         $data = self::leggiDatiEvento($app->getInput());
         $result = [
             'local_ids' => self::trovaDuplicatiLocali($data['data'], $data['ora']),
-            'serenade' => self::controllaSerenade($data, $params->get('serenade_url', ''), (bool) $params->get('serenade_complete', 0)),
+            'serenade' => $params->get('serenade_mode', 'portal') === 'portal'
+                ? ModInsertEventSerenade::cerca($data, $params->get('serenade_portal_url', 'http://wessel.ov.ingv.it//serenade/index.php'), (bool) $params->get('serenade_complete', 0))
+                : self::controllaSerenade($data, $params->get('serenade_url', ''), (bool) $params->get('serenade_complete', 0)),
         ];
         return $result + [
             'data' => $data['data'], 'ora' => $data['ora'],
