@@ -3,11 +3,26 @@ defined('_JEXEC') or die;
 
 class ModHermesEventiHelper
 {
+    public static function getLinkAggiuntivi(?string $text): array
+    {
+        $urls = [];
+        foreach (preg_split('/\r\n|\r|\n/', $text ?? '') as $line) {
+            $url = trim($line);
+            $parts = parse_url($url);
+            if (filter_var($url, FILTER_VALIDATE_URL) && $parts
+                && in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+                && !isset($parts['user']) && !isset($parts['pass']) && !preg_match('/[\x00-\x20\x7f]/', $url)) {
+                $urls[] = $url;
+            }
+        }
+        return array_values(array_unique($urls));
+    }
+
     public static function getEventi($tipo = '', $ordine = 'data_desc')
     {
         $db = JFactory::getDbo();
         $query = $db->getQuery(true)
-            ->select('e.id, e.tipo, e.stazione_first, e.area, e.wessel_link, e.Md, e.data, e.note, e.ora, GROUP_CONCAT(i.percorso_file SEPARATOR "||") AS percorso_file')
+            ->select('e.id, e.tipo, e.stazione_first, e.area, e.wessel_link, e.link_aggiuntivi, e.Md, e.data, e.note, e.ora, GROUP_CONCAT(i.percorso_file SEPARATOR "||") AS percorso_file')
             ->from($db->qn('hermes_eventi', 'e'))
             ->leftJoin($db->qn('hermes_immagini', 'i') . ' ON i.id_evento = e.id')
             ->group($db->qn('e.id'));

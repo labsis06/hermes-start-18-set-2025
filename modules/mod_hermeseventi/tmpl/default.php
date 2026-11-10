@@ -1,4 +1,7 @@
 <style>
+    .evento-link-aggiuntivi {
+        overflow-wrap: anywhere;
+    }
     .mostra-dettagli-btn {
         margin-top: 10px;
         padding: 6px 12px;
@@ -317,6 +320,17 @@ foreach ($immagini as $img) {
             echo '<a href="' . $safe_url . '" target="_blank" rel="noopener noreferrer">' . nl2br($label) . '</a>';
         }
         ?>
+        </p>
+
+        <p class="evento-link-aggiuntivi"><strong>Link aggiuntivi:</strong>
+        <?php $linkAggiuntivi = ModHermesEventiHelper::getLinkAggiuntivi($evento->link_aggiuntivi ?? null); ?>
+        <?php if (!$linkAggiuntivi): ?>
+            ND
+        <?php else: ?>
+            <?php foreach ($linkAggiuntivi as $link): ?>
+                <br><a href="<?php echo htmlspecialchars($link, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer"><?php echo htmlspecialchars($link, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></a>
+            <?php endforeach; ?>
+        <?php endif; ?>
         </p>
 
         <p><strong>Note:</strong> <?php $note = $evento->note ?? '';

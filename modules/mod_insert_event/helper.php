@@ -48,10 +48,35 @@ class ModInsertEventHelper
     public static function leggiDatiEvento($input): array
     {
         $data = [];
-        foreach (['data', 'ora', 'tipo', 'area', 'stazione', 'componente', 'note', 'Md', 'profondita', 'lat', 'lon'] as $field) {
+        foreach (['data', 'ora', 'tipo', 'area', 'stazione', 'componente', 'note', 'Md', 'profondita', 'lat', 'lon', 'link_aggiuntivi'] as $field) {
             $data[$field] = $input->getString($field);
         }
+        $data['link_aggiuntivi'] = self::normalizzaLinkAggiuntivi($data['link_aggiuntivi']);
         return array_replace($data, self::normalizzaDataOra($data['data'], $data['ora']));
+    }
+
+    /** Più URL informativi, uno per riga. Mai codice HTML o schemi eseguibili. */
+    public static function normalizzaLinkAggiuntivi(string $text): string
+    {
+        $urls = [];
+        foreach (preg_split('/\r\n|\r|\n/', $text) as $index => $line) {
+            $url = trim($line);
+            if ($url === '') {
+                continue;
+            }
+            $parts = parse_url($url);
+            if (!filter_var($url, FILTER_VALIDATE_URL) || !$parts
+                || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+                || isset($parts['user']) || isset($parts['pass']) || preg_match('/[\x00-\x20\x7f]/', $url)) {
+                throw new \InvalidArgumentException('Link aggiuntivi: URL non valido alla riga ' . ($index + 1) . '. Inserire un indirizzo completo http:// o https://, uno per riga.');
+            }
+            $urls[] = $url;
+        }
+        $normalized = implode("\n", array_values(array_unique($urls)));
+        if (strlen($normalized) > 65535) {
+            throw new \InvalidArgumentException('Link aggiuntivi troppo lunghi: ridurre il numero o la lunghezza degli indirizzi.');
+        }
+        return $normalized;
     }
 
     /** La risposta di un endpoint parziale non dimostra l'assenza da Serenade. */
@@ -90,7 +115,16 @@ class ModInsertEventHelper
 
     public static function richiedeConferma(array $result): bool
     {
-        return !empty($result['local_ids']) || $result['serenade']['status'] !== 'not_found';
+        return !empty($result['local_ids']) || !in_array($result['serenade']['status'], ['not_found', 'disabled'], true);
+    }
+
+    public static function controllaSerenadeConfigurato(array $data, $params): array
+    {
+        return match ($params->get('serenade_mode', 'off')) {
+            'portal' => ModInsertEventSerenade::cerca($data, $params->get('serenade_portal_url', 'http://wessel.ov.ingv.it//serenade/index.php'), (bool) $params->get('serenade_complete', 0)),
+            'json' => self::controllaSerenade($data, $params->get('serenade_url', ''), (bool) $params->get('serenade_complete', 0)),
+            default => ['status' => 'disabled', 'ids' => [], 'detail' => 'Controllo Wessel/Serenade disattivato.'],
+        };
     }
 
     public static function creaTicket($session, int $moduleId, array $data, array $result): string
@@ -135,9 +169,7 @@ class ModInsertEventHelper
         $data = self::leggiDatiEvento($app->getInput());
         $result = [
             'local_ids' => self::trovaDuplicatiLocali($data['data'], $data['ora']),
-            'serenade' => $params->get('serenade_mode', 'portal') === 'portal'
-                ? ModInsertEventSerenade::cerca($data, $params->get('serenade_portal_url', 'http://wessel.ov.ingv.it//serenade/index.php'), (bool) $params->get('serenade_complete', 0))
-                : self::controllaSerenade($data, $params->get('serenade_url', ''), (bool) $params->get('serenade_complete', 0)),
+            'serenade' => self::controllaSerenadeConfigurato($data, $params),
         ];
         return $result + [
             'data' => $data['data'], 'ora' => $data['ora'],
@@ -182,6 +214,7 @@ class ModInsertEventHelper
     public static function salvaEvento($data, array $duplicatiConfermati = [])
     {
         $data = array_replace($data, self::normalizzaDataOra($data['data'], $data['ora']));
+        $links = self::normalizzaLinkAggiuntivi($data['link_aggiuntivi'] ?? '');
         $db = Factory::getDbo();
         // Serializza gli invii concorrenti dello stesso istante da questo modulo.
         $lock = 'hermes_eventi:' . sha1($data['data'] . ' ' . $data['ora']);
@@ -196,7 +229,7 @@ class ModInsertEventHelper
             $query = $db->getQuery(true);
 
             // Inserimento in hermes_eventi
-            $columns = ['data', 'ora', 'tipo', 'area', 'stazione_first', 'comp1', 'note', 'Md', 'prof', 'lat', 'lon'];
+            $columns = ['data', 'ora', 'tipo', 'area', 'stazione_first', 'comp1', 'note', 'Md', 'prof', 'lat', 'lon', 'link_aggiuntivi'];
 
             $mdValue = $data['Md'] === null || $data['Md'] === ''
                 ? 'NULL'
@@ -217,7 +250,8 @@ class ModInsertEventHelper
                 $mdValue,
                 $profValue,
                 $db->quote($data['lat']),
-                $db->quote($data['lon'])
+                $db->quote($data['lon']),
+                $links === '' ? 'NULL' : $db->quote($links)
             ];
 
             $query
