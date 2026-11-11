@@ -9,8 +9,16 @@ $message = '';
 $messageType = 'info';
 $evento = null;
 $immagini = [];
+$allegati = [];
 $id = $input->getInt('event_id');
 $submitted = [];
+
+$postLimit = ModInsertEventAttachments::bytes((string) ini_get('post_max_size'));
+if ($input->getMethod() === 'POST' && $postLimit > 0 && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > $postLimit) {
+    $message = 'Caricamento troppo grande: superato il limite totale del server. Nessun allegato aggiunto; ricaricare l’evento e ridurre i file.';
+    $messageType = 'danger';
+    $task = '';
+}
 
 try {
     if ($task !== '' && $task !== 'load') {
@@ -47,8 +55,28 @@ try {
             if (!in_array($imageId, array_map(static fn($image) => (int) $image['id'], $images), true)) {
                 throw new \DomainException('Immagine non associata a questo evento.');
             }
-            $message = ModHermesManagerHelper::deleteImmagine($imageId);
+            $message = ModHermesManagerHelper::deleteImmagine($imageId, $id);
             $evento = ModHermesManagerHelper::getEvento($id);
+            break;
+        case 'upload_attachment':
+        case 'replace_attachment':
+            $message = ModHermesManagerHelper::caricaAllegati(
+                $id, $input->post->getCmd('attachment_type'), $input->files,
+                $input->post->getInt('attachment_count', -1),
+                $task === 'replace_attachment' ? $input->post->getInt('attachment_id') : null
+            );
+            $evento = ModHermesManagerHelper::getEvento($id);
+            $messageType = 'success';
+            break;
+        case 'delete_attachment':
+            $message = ModHermesManagerHelper::eliminaAllegato($id, $input->post->getCmd('attachment_type'), $input->post->getInt('attachment_id'));
+            $evento = ModHermesManagerHelper::getEvento($id);
+            $messageType = 'success';
+            break;
+        case 'rename_attachment':
+            $message = ModHermesManagerHelper::rinominaAllegato($id, $input->post->getCmd('attachment_type'), $input->post->getInt('attachment_id'), $input->post->getString('attachment_name'));
+            $evento = ModHermesManagerHelper::getEvento($id);
+            $messageType = 'success';
             break;
         case 'upload_img':
             if (!ModHermesManagerHelper::getEvento($id)) {
@@ -73,8 +101,14 @@ try {
     $messageType = 'danger';
     \Joomla\CMS\Log\Log::add($e->getMessage(), \Joomla\CMS\Log\Log::ERROR, 'mod_hermesmanager');
 }
+if (!$evento && $id > 0 && $task !== '' && $task !== 'delete') {
+    try { $evento = ModHermesManagerHelper::getEvento($id); } catch (\Throwable $ignored) {}
+}
 if ($evento) {
-    $immagini = ModHermesManagerHelper::getImmagini((int) $evento['id']);
+    foreach (ModInsertEventAttachments::GROUPS as $type => $group) {
+        $allegati[$type] = ModHermesManagerHelper::getAllegati((int) $evento['id'], $type);
+    }
+    $immagini = $allegati['immagine'];
 }
 
 require \Joomla\CMS\Helper\ModuleHelper::getLayoutPath('mod_hermesmanager', 'default');

@@ -2,7 +2,7 @@
 <extension type="module" version="4.0" client="site" method="upgrade">
     <name>mod_hermesmanager</name>
     <title>Hermes Event Manager</title>
-    <version>1.1.1</version>
+    <version>1.2.0</version>
     <description>Gestione completa eventi e immagini</description>
     <files>
         <filename module="mod_hermesmanager">mod_hermesmanager.php</filename>
