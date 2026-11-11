@@ -51,7 +51,7 @@ $token = \Joomla\CMS\HTML\HTMLHelper::_('form.token');
     </fieldset>
 </form>
 
-<form method="post" onsubmit="return confirm('Eliminare definitivamente questo evento e le associazioni alle immagini?');">
+<form method="post" onsubmit="return confirm('Eliminare definitivamente questo evento e tutte le associazioni a immagini, pubblicazioni e file?');">
     <input type="hidden" name="hermesmanager_task" value="delete">
     <input type="hidden" name="manager_id" value="<?php echo $managerId; ?>">
     <input type="hidden" name="event_id" value="<?php echo (int) $evento['id']; ?>">

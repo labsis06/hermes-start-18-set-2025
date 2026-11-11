@@ -47,10 +47,34 @@ class ModHermesManagerHelper
 
     public static function deleteEvento($id)
     {
+        $id = (int) $id;
+        if ($id < 1) {
+            throw new \DomainException('ID evento non valido.');
+        }
         $db = Factory::getDbo();
-        $db->setQuery("DELETE FROM hermes_immagini WHERE id_evento = " . (int)$id)->execute();
-        $db->setQuery("DELETE FROM hermes_eventi WHERE id = " . (int)$id)->execute();
-        return "Evento e immagini eliminati correttamente.";
+        $db->transactionStart();
+        try {
+            $eventId = $db->setQuery('SELECT ' . $db->qn('id') . ' FROM ' . $db->qn('hermes_eventi')
+                . ' WHERE ' . $db->qn('id') . ' = ' . $id . ' FOR UPDATE')->loadResult();
+            if ($eventId === null) {
+                throw new \DomainException('Evento non trovato. Controllare l’ID.');
+            }
+            // hermes_files ha un FK senza ON DELETE CASCADE: eliminare prima
+            // tutti i figli, comprese le pubblicazioni che non hanno un FK.
+            foreach (['hermes_immagini', 'hermes_pubblicazioni', 'hermes_files'] as $table) {
+                $query = $db->getQuery(true)->delete($db->qn($table))
+                    ->where($db->qn('id_evento') . ' = ' . $id);
+                $db->setQuery($query)->execute();
+            }
+            $query = $db->getQuery(true)->delete($db->qn('hermes_eventi'))
+                ->where($db->qn('id') . ' = ' . $id);
+            $db->setQuery($query)->execute();
+            $db->transactionCommit();
+        } catch (\Throwable $e) {
+            $db->transactionRollback();
+            throw $e;
+        }
+        return 'Evento e associazioni a immagini, pubblicazioni e file eliminati correttamente.';
     }
 
     public static function updateEvento($data)
