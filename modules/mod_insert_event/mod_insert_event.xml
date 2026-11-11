@@ -2,7 +2,7 @@
 <extension type="module" version="4.0" client="site" method="upgrade">
 	<name>mod_insert_event</name>
 	<author>Luca</author>
-	<version>1.4.0</version>
+	<version>1.4.1</version>
 	<description>Modulo per inserimento dati in tabella hermes_eventi</description>
 
 	<files>

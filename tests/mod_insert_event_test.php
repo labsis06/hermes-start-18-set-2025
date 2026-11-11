@@ -24,6 +24,16 @@ $rejects = function (callable $operation, string $exception) use ($check) {
     throw new RuntimeException('Expected exception: ' . $exception);
 };
 
+$wesselLink = 'http://wessel.ov.ingv.it//serenade/index.php?page=showevent&area=unknown&eventid=28768';
+$check(ModInsertEventHelper::normalizzaWesselLink($wesselLink) === $wesselLink, 'Preserve Wessel URL including path and query');
+$check(ModInsertEventHelper::normalizzaWesselLink('wessel.ov.ingv.it/event/28768') === 'http://wessel.ov.ingv.it/event/28768', 'Accept legacy Wessel hostname without scheme');
+$check(ModInsertEventHelper::normalizzaWesselLink('  ') === '', 'Wessel link remains optional');
+foreach (['javascript:alert(1)', 'ftp://example.org/event', "https://example.org/one\nhttps://example.org/two", 'https://user:pass@example.org/', 'https://example.org/' . str_repeat('a', 1000)] as $invalidWessel) {
+    $rejects(fn() => ModInsertEventHelper::normalizzaWesselLink($invalidWessel), InvalidArgumentException::class);
+}
+$posted = ModInsertEventHelper::leggiDatiEvento(new Joomla\Input\Input(['data' => '2026-11-02', 'ora' => '20:16:49', 'wessel_link' => $wesselLink]));
+$check($posted['wessel_link'] === $wesselLink, 'Read Wessel link from insertion and duplicate-check request');
+
 $urls = "https://example.org/evento?id=1&fonte=test\nhttp://example.com/approfondimento";
 $check(ModInsertEventHelper::normalizzaLinkAggiuntivi("  \r\n  " . str_replace("\n", "\r\n", $urls) . "\r\nhttps://example.org/evento?id=1&fonte=test  ") === $urls, 'Normalize line endings, trim and remove duplicate links');
 $check(ModInsertEventHelper::normalizzaLinkAggiuntivi('') === '', 'Additional links are optional');
@@ -150,6 +160,9 @@ $check($disabled['status'] === 'disabled', 'Disabled remote check must not fetch
 $check(ModInsertEventHelper::controllaSerenadeConfigurato($when, new Joomla\Registry\Registry())['status'] === 'disabled', 'Default mode is local only');
 $check(!ModInsertEventHelper::richiedeConferma(['local_ids' => [], 'serenade' => $disabled]), 'Local-only mode without matches does not prompt');
 $check(ModInsertEventHelper::richiedeConferma(['local_ids' => [123], 'serenade' => $disabled]), 'Local-only duplicate still requires confirmation');
+$originalLinkData = $when + ['wessel_link' => $wesselLink];
+$token = ModInsertEventHelper::creaTicket($session, 110, $originalLinkData, $result);
+$rejects(fn() => ModInsertEventHelper::consumaTicket($session, 110, array_replace($originalLinkData, ['wessel_link' => 'https://example.org/changed']), $token, true), DomainException::class);
 
 $schema = getenv('HERMES_TEST_DATABASE');
 if ($schema) {
@@ -165,10 +178,11 @@ if ($schema) {
     try {
         $data = ['data' => '2040-01-02', 'ora' => '03:04', 'tipo' => 'terremoto', 'area' => 'Ischia',
             'stazione' => 'ND', 'componente' => 'ND', 'note' => 'duplicate check test', 'Md' => '',
-            'profondita' => '', 'lat' => '', 'lon' => '', 'link_aggiuntivi' => $urls];
+            'profondita' => '', 'lat' => '', 'lon' => '', 'link_aggiuntivi' => $urls, 'wessel_link' => $wesselLink];
         $id = ModInsertEventHelper::salvaEvento($data);
         $check($id > 0, 'First insert must succeed');
         $check($db->setQuery('SELECT link_aggiuntivi FROM hermes_eventi WHERE id=' . $id)->loadResult() === $urls, 'Persist all additional links without changing query parameters');
+        $check($db->setQuery('SELECT wessel_link FROM hermes_eventi WHERE id=' . $id)->loadResult() === $wesselLink, 'Persist Wessel link independently from additional links');
         $check(ModInsertEventHelper::trovaDuplicatoLocale('2040-01-02', '03:04:00') === $id, 'Stored duplicate not found');
         $data['area'] = 'Campi Flegrei';
         $rejects(fn() => ModInsertEventHelper::salvaEvento($data), DomainException::class);
@@ -179,7 +193,10 @@ if ($schema) {
         $data['ora'] = '03:04:01';
         $check(ModInsertEventHelper::salvaEvento($data) !== $id, 'Different second must be insertable');
         $data['data'] = '2040-01-03';
-        $check(ModInsertEventHelper::salvaEvento($data) > 0, 'Different date must be insertable');
+        $data['wessel_link'] = '';
+        $withoutWessel = ModInsertEventHelper::salvaEvento($data);
+        $check($withoutWessel > 0, 'Different date must be insertable');
+        $check($db->setQuery('SELECT wessel_link FROM hermes_eventi WHERE id=' . $withoutWessel)->loadResult() === null, 'Empty Wessel link is NULL');
     } finally {
         $db->transactionRollback();
     }
