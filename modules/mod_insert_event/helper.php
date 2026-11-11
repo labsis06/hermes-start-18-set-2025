@@ -48,11 +48,26 @@ class ModInsertEventHelper
     public static function leggiDatiEvento($input): array
     {
         $data = [];
-        foreach (['data', 'ora', 'tipo', 'area', 'stazione', 'componente', 'note', 'Md', 'profondita', 'lat', 'lon', 'link_aggiuntivi'] as $field) {
-            $data[$field] = $input->getString($field);
+        foreach (['data', 'ora', 'tipo', 'area', 'stazione', 'componente', 'note', 'Md', 'profondita', 'lat', 'lon', 'wessel_link', 'link_aggiuntivi'] as $field) {
+            $data[$field] = $input->getString($field, '');
         }
         $data['link_aggiuntivi'] = self::normalizzaLinkAggiuntivi($data['link_aggiuntivi']);
+        $data['wessel_link'] = self::normalizzaWesselLink($data['wessel_link']);
         return array_replace($data, self::normalizzaDataOra($data['data'], $data['ora']));
+    }
+
+    public static function normalizzaWesselLink(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') return '';
+        // Mantiene la compatibilità con gli indirizzi senza schema già gestiti nelle vcard.
+        if (!preg_match('/^[a-z][a-z0-9+.-]*:/i', $value)) $value = 'http://' . $value;
+        try {
+            if (strlen($value) > 1000 || preg_match('/[\r\n]/', $value)) throw new \InvalidArgumentException();
+            return self::normalizzaLinkAggiuntivi($value);
+        } catch (\InvalidArgumentException $e) {
+            throw new \InvalidArgumentException('Wessel link: inserire un solo indirizzo HTTP/HTTPS valido, lungo al massimo 1000 caratteri.');
+        }
     }
 
     /** Più URL informativi, uno per riga. Mai codice HTML o schemi eseguibili. */
@@ -215,6 +230,7 @@ class ModInsertEventHelper
     {
         $data = array_replace($data, self::normalizzaDataOra($data['data'], $data['ora']));
         $links = self::normalizzaLinkAggiuntivi($data['link_aggiuntivi'] ?? '');
+        $wesselLink = self::normalizzaWesselLink($data['wessel_link'] ?? '');
         $db = Factory::getDbo();
         // Serializza gli invii concorrenti dello stesso istante da questo modulo.
         $lock = 'hermes_eventi:' . sha1($data['data'] . ' ' . $data['ora']);
@@ -234,7 +250,7 @@ class ModInsertEventHelper
             $query = $db->getQuery(true);
 
             // Inserimento in hermes_eventi
-            $columns = ['data', 'ora', 'tipo', 'area', 'stazione_first', 'comp1', 'note', 'Md', 'prof', 'lat', 'lon', 'link_aggiuntivi'];
+            $columns = ['data', 'ora', 'tipo', 'area', 'stazione_first', 'comp1', 'note', 'Md', 'prof', 'lat', 'lon', 'wessel_link', 'link_aggiuntivi'];
 
             $mdValue = $data['Md'] === null || $data['Md'] === ''
                 ? 'NULL'
@@ -256,6 +272,7 @@ class ModInsertEventHelper
                 $profValue,
                 $db->quote($data['lat']),
                 $db->quote($data['lon']),
+                $wesselLink === '' ? 'NULL' : $db->quote($wesselLink),
                 $links === '' ? 'NULL' : $db->quote($links)
             ];
 

@@ -41,6 +41,13 @@ mantengono il loro funzionamento precedente.
 
 ## Link aggiuntivi dell'evento
 
+Il campo facoltativo **Wessel link** è disponibile nel form subito prima di
+**Link aggiuntivi** e viene salvato nella colonna esistente `wessel_link`.
+Accetta un solo URL HTTP/HTTPS; per compatibilità, gli indirizzi senza schema
+ricevono il prefisso `http://`. Se vuoto viene salvato NULL. La verifica duplicati
+lega anche questo valore al ticket di conferma, senza effettuare richieste a
+Wessel quando il controllo remoto è disattivato. Non serve una migrazione SQL.
+
 Il form contiene un campo facoltativo **Link aggiuntivi**, con un URL completo
 HTTP/HTTPS per riga. Gli indirizzi vengono validati, privati delle righe vuote e
 dei duplicati, e salvati nella colonna `hermes_eventi.link_aggiuntivi`.

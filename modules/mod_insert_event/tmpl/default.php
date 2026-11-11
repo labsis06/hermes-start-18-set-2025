@@ -146,6 +146,14 @@
 </div>
   
   <div class="form-group row">
+    <label for="wessel-link-<?php echo (int) $module->id; ?>" class="col-4 col-form-label">Wessel link</label>
+    <div class="col-8">
+        <input id="wessel-link-<?php echo (int) $module->id; ?>" name="wessel_link" type="text" inputmode="url" class="form-control" maxlength="1000"
+            placeholder="http://wessel.ov.ingv.it/serenade/index.php?page=showevent&amp;eventid=28768">
+        <small class="form-text text-muted">Facoltativo. Indirizzo della pagina Wessel relativa all’evento.</small>
+    </div>
+  </div>
+  <div class="form-group row">
     <label for="link-aggiuntivi-<?php echo (int) $module->id; ?>" class="col-4 col-form-label">Link aggiuntivi</label>
     <div class="col-8">
         <textarea id="link-aggiuntivi-<?php echo (int) $module->id; ?>" name="link_aggiuntivi" class="form-control" rows="3"
