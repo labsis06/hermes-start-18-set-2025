@@ -211,7 +211,7 @@ class ModInsertEventHelper
         return array_values($matches);
     }
 
-    public static function salvaEvento($data, array $duplicatiConfermati = [])
+    public static function salvaEvento($data, array $duplicatiConfermati = [], ?callable $afterInsert = null)
     {
         $data = array_replace($data, self::normalizzaDataOra($data['data'], $data['ora']));
         $links = self::normalizzaLinkAggiuntivi($data['link_aggiuntivi'] ?? '');
@@ -221,7 +221,12 @@ class ModInsertEventHelper
         if ((int) $db->setQuery('SELECT GET_LOCK(' . $db->quote($lock) . ', 5)')->loadResult() !== 1) {
             throw new \RuntimeException('Inserimento in corso per questa data e ora. Riprovare tra pochi secondi.');
         }
+        $transaction = false;
         try {
+            if ($afterInsert !== null) {
+                $db->transactionStart();
+                $transaction = true;
+            }
             $existingIds = self::trovaDuplicatiLocali($data['data'], $data['ora']);
             if (array_diff($existingIds, $duplicatiConfermati)) {
                 throw new \DomainException('Evento già presente nel database locale (ID: ' . implode(', ', $existingIds) . '). Ripetere il controllo e confermare per continuare.');
@@ -262,7 +267,16 @@ class ModInsertEventHelper
             $db->setQuery($query);
             $db->execute();
 
-            return (int) $db->insertid();
+            $id = (int) $db->insertid();
+            if ($afterInsert !== null) $afterInsert($id);
+            if ($transaction) {
+                $db->transactionCommit();
+                $transaction = false;
+            }
+            return $id;
+        } catch (\Throwable $e) {
+            if ($transaction) $db->transactionRollback();
+            throw $e;
         } finally {
             $db->setQuery('SELECT RELEASE_LOCK(' . $db->quote($lock) . ')')->loadResult();
         }

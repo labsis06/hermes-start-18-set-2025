@@ -1,5 +1,44 @@
 # Controllo prima dell'inserimento
 
+## Immagini, pubblicazioni e file generici multipli
+
+Il form contiene tre selezioni facoltative e multiple: **Immagini**,
+**Pubblicazioni**, **File generici**. Selezionare più file insieme nella finestra
+di scelta (Ctrl/Shift su Windows). Sotto ogni campo viene mostrato l'elenco dei
+nomi selezionati. I tre gruppi vengono associati automaticamente allo stesso ID
+evento nelle tabelle esistenti `hermes_immagini`, `hermes_pubblicazioni` e
+`hermes_files`; non serve una nuova migrazione SQL per i caricamenti multipli.
+
+Gli allegati restano nel browser durante il controllo duplicati e vengono
+trasferiti soltanto nell'invio finale. **Annulla** mantiene tutte le selezioni e
+non salva nulla. **Continua inserimento** autorizza l'inserimento con tutti gli
+allegati scelti. Sono supportati JPEG, PNG, GIF, WebP e BMP validi per le immagini;
+le altre due categorie accettano documenti e dati, senza interpretarli come codice.
+
+Il server valida tutti i file prima di inserire il record. Evento e associazioni
+degli allegati sono salvati nella stessa transazione InnoDB; il lock sui duplicati
+resta attivo fino al commit. Se un salvataggio fallisce, la transazione viene
+annullata e i file appena spostati vengono rimossi. Il messaggio finale mostra
+quanti file sono stati salvati per ciascuna categoria.
+
+I nomi fisici sono casuali per evitare sovrascritture, anche quando due file hanno
+lo stesso nome originale. I documenti e dati sono conservati con estensione
+`.bin` per non renderli eseguibili dal server web. I nomi originali sono mantenuti
+nel database e nell'attributo `download` dei link della vcard: l'utente scarica il
+file con nome ed estensione originali. Le immagini hanno l'estensione del formato
+effettivamente rilevato, non quella dichiarata dal browser.
+
+I limiti PHP correnti (`max_file_uploads`, `upload_max_filesize`, `post_max_size`)
+sono mostrati nel form. Il massimo numero di file vale per la somma delle tre
+categorie. Il browser controlla numero e dimensioni; il server rileva anche invii
+parziali, file vuoti, richieste troppo grandi e allegati mancanti per troncamento.
+Per cambiare le soglie occorre aggiornare la configurazione PHP del server.
+
+Distribuire anche il nuovo file `attachments.php` insieme a helper, file
+principale, layout e manifest di `mod_insert_event`, e al layout di
+`mod_hermeseventi`. I form separati per aggiungere allegati a eventi già esistenti
+mantengono il loro funzionamento precedente.
+
 ## Link aggiuntivi dell'evento
 
 Il form contiene un campo facoltativo **Link aggiuntivi**, con un URL completo
