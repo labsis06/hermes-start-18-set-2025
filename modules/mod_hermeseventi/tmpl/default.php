@@ -352,7 +352,7 @@ foreach ($immagini as $img) {
                 echo '<strong>Immagini disponibili per questo evento:</strong><ul style="list-style-type: disc; padding-left: 20px;">';
                 foreach ($hermes_immag as $immag) {
                     $immag_url = JUri::base() . ltrim($immag->percorso_file, '/');
-                    echo '<li><a href="' . $immag_url . '" download style="color:#333; text-decoration:underline;">' . htmlspecialchars($immag->nome_file) . '</a></li>';
+                    echo '<li><a href="' . htmlspecialchars($immag_url, ENT_QUOTES, 'UTF-8') . '" download="' . htmlspecialchars($immag->nome_file, ENT_QUOTES, 'UTF-8') . '" style="color:#333; text-decoration:underline;">' . htmlspecialchars($immag->nome_file) . '</a></li>';
                 }
                 echo '</ul></div>';
             }
@@ -373,7 +373,7 @@ foreach ($immagini as $img) {
                 echo '<strong>File disponibili per questo evento:</strong><ul style="list-style-type: disc; padding-left: 20px;">';
                 foreach ($hermes_files as $file) {
                     $file_url = JUri::base() . ltrim($file->percorso_file, '/');
-                    echo '<li><a href="' . $file_url . '" download style="color:#333; text-decoration:underline;">' . htmlspecialchars($file->nome_file) . '</a></li>';
+                    echo '<li><a href="' . htmlspecialchars($file_url, ENT_QUOTES, 'UTF-8') . '" download="' . htmlspecialchars($file->nome_file, ENT_QUOTES, 'UTF-8') . '" style="color:#333; text-decoration:underline;">' . htmlspecialchars($file->nome_file) . '</a></li>';
                 }
                 echo '</ul></div>';
             }
@@ -393,7 +393,7 @@ foreach ($immagini as $img) {
                 echo '<strong>Pubblicazioni disponibili per questo evento:</strong><ul style="list-style-type: disc; padding-left: 20px;">';
                 foreach ($hermes_pubblicazioni as $pub) {
                     $pub_url = JUri::base() . ltrim($pub->percorso_file, '/');
-                    echo '<li><a href="' . $pub_url . '" download style="color:#333; text-decoration:underline;">' . htmlspecialchars($pub->nome_file) . '</a></li>';
+                    echo '<li><a href="' . htmlspecialchars($pub_url, ENT_QUOTES, 'UTF-8') . '" download="' . htmlspecialchars($pub->nome_file, ENT_QUOTES, 'UTF-8') . '" style="color:#333; text-decoration:underline;">' . htmlspecialchars($pub->nome_file) . '</a></li>';
                 }
                 echo '</ul></div>';
             }

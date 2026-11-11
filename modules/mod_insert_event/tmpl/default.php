@@ -14,6 +14,7 @@
 	<input type="hidden" name="mod_id" value="<?php echo $module->id; ?>" />
     <input type="hidden" name="event_check_token" value="">
     <input type="hidden" name="confirm_duplicate" value="0">
+    <input type="hidden" name="attachment_count" value="0">
     <?php echo JHtml::_('form.token'); ?>
   <div class="form-group row">
 				<label for="data" class="col-4 col-form-label">Data</label>
@@ -157,9 +158,31 @@
   <div class="form-group row">
     <label for="immagine" class="col-4 col-form-label">Immagini</label>
     <div class="col-8">
-        <input id="immagine" name="immagine" type="file" accept="image/*" class="form-control">
+        <input id="immagine" name="immagine[]" type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp" class="form-control" multiple>
+        <small>Puoi selezionare più immagini insieme.</small>
+        <ul data-file-list="immagine"></ul>
     </div>
   </div>
+
+  <div class="form-group row">
+    <label for="pubblicazione-<?php echo (int) $module->id; ?>" class="col-4 col-form-label">Pubblicazioni</label>
+    <div class="col-8">
+        <input id="pubblicazione-<?php echo (int) $module->id; ?>" name="pubblicazione[]" type="file" class="form-control" multiple>
+        <small>Seleziona una o più pubblicazioni da associare all’evento.</small>
+        <ul data-file-list="pubblicazione"></ul>
+    </div>
+  </div>
+  <div class="form-group row">
+    <label for="file-generico-<?php echo (int) $module->id; ?>" class="col-4 col-form-label">File generici</label>
+    <div class="col-8">
+        <input id="file-generico-<?php echo (int) $module->id; ?>" name="file_generico[]" type="file" class="form-control" multiple>
+        <small>Seleziona uno o più file di dati o documenti.</small>
+        <ul data-file-list="file_generico"></ul>
+    </div>
+  </div>
+  <p>Limiti per invio: <?php echo (int) ini_get('max_file_uploads'); ?> allegati complessivi,
+     <?php echo htmlspecialchars((string) ini_get('upload_max_filesize'), ENT_QUOTES, 'UTF-8'); ?> per file,
+     <?php echo htmlspecialchars((string) ini_get('post_max_size'), ENT_QUOTES, 'UTF-8'); ?> totali.</p>
 
 
   <div class="form-group row">
@@ -193,7 +216,24 @@
         const status = document.getElementById('insert-event-status-<?php echo (int) $module->id; ?>');
         const submit = form.querySelector('button[type="submit"]');
         const snapshot = () => JSON.stringify([...new FormData(form)].filter(([name, value]) =>
-            typeof value === 'string' && !['event_check_token', 'confirm_duplicate'].includes(name)));
+            typeof value === 'string' && !['event_check_token', 'confirm_duplicate', 'attachment_count'].includes(name)));
+        const fileInputs = [...form.querySelectorAll('input[type="file"]')];
+        const maxFiles = <?php echo (int) ini_get('max_file_uploads'); ?>;
+        const maxFileBytes = <?php echo ModInsertEventAttachments::bytes((string) ini_get('upload_max_filesize')); ?>;
+        const maxTotalBytes = <?php echo ModInsertEventAttachments::bytes((string) ini_get('post_max_size')); ?>;
+        const checkFiles = () => {
+            const files = fileInputs.flatMap(input => [...input.files]);
+            if (maxFiles > 0 && files.length > maxFiles) throw new Error('Puoi inviare al massimo ' + maxFiles + ' allegati complessivi.');
+            if (maxFileBytes > 0 && files.some(file => file.size > maxFileBytes)) throw new Error('Un file supera il limite di dimensione indicato nel form.');
+            if (maxTotalBytes > 0 && files.reduce((sum, file) => sum + file.size, 0) > maxTotalBytes) throw new Error('La dimensione complessiva degli allegati supera il limite totale indicato nel form.');
+            return files.length;
+        };
+        fileInputs.forEach(input => input.addEventListener('change', () => {
+            const list = form.querySelector('[data-file-list="' + input.name.replace('[]', '') + '"]');
+            list.replaceChildren(...[...input.files].map(file => {
+                const item = document.createElement('li'); item.textContent = file.name; return item;
+            }));
+        }));
         let busy = false;
         dialog.querySelector('[data-continue]').addEventListener('click', () => dialog.close('continue'));
         dialog.querySelector('[data-cancel]').addEventListener('click', () => dialog.close('cancel'));
@@ -206,10 +246,13 @@
             form.elements.confirm_duplicate.value = '0';
             status.textContent = 'Controllo di data e ora nei database in corso…';
             try {
+                checkFiles();
                 const payload = new FormData(form);
                 const original = snapshot();
-                // Il file rimane nel form e viene caricato una sola volta, dopo la conferma.
-                payload.delete('immagine');
+                // Tutti gli allegati restano nel form: la verifica invia soltanto i dati.
+                for (const name of [...payload.keys()]) {
+                    if (payload.get(name) instanceof File) payload.delete(name);
+                }
                 const url = new URL(<?php echo json_encode(\Joomla\CMS\Uri\Uri::root() . 'index.php', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
                 url.search = new URLSearchParams({option: 'com_ajax', module: 'insert_event', method: 'check', format: 'json', Itemid: <?php echo (int) ($app->getMenu()->getActive()->id ?? 0); ?>});
                 const response = await fetch(url, {method: 'POST', body: payload, credentials: 'same-origin'});
@@ -243,13 +286,14 @@
                     dialog.showModal();
                     confirmed = await decision;
                     if (!confirmed) {
-                        status.textContent = 'Inserimento annullato. Nessun evento o immagine salvato; i dati compilati sono rimasti nel modulo.';
+                        status.textContent = 'Inserimento annullato. Nessun evento o allegato salvato; dati e file selezionati sono rimasti nel modulo.';
                         return;
                     }
                 }
                 if (snapshot() !== original) throw new Error('Dati modificati dopo il controllo. Premi nuovamente Submit per verificarli.');
                 form.elements.event_check_token.value = checked.token;
                 form.elements.confirm_duplicate.value = confirmed ? '1' : '0';
+                form.elements.attachment_count.value = checkFiles();
                 status.textContent = 'Inserimento in corso…';
                 HTMLFormElement.prototype.submit.call(form);
             } catch (error) {
