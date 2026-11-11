@@ -19,8 +19,12 @@ cancellare la riga; per rimuoverli tutti lasciare il campo vuoto. Le note
 supportano più righe. La homepage mostra i dati aggiornati dopo il ricaricamento.
 
 Le immagini hanno i comandi separati **Aggiungi immagine** ed **Elimina immagine**.
-**Elimina intero evento** elimina invece il record e le associazioni alle immagini,
-dopo conferma. Le operazioni che modificano dati richiedono POST e token CSRF.
+**Elimina intero evento** elimina invece il record e tutte le associazioni a
+immagini, pubblicazioni e file, dopo conferma. La cancellazione viene eseguita in
+una transazione: se un vincolo impedisce l'operazione, vengono ripristinate anche
+le associazioni già rimosse. Le copie dei file sul disco vengono conservate,
+come nel precedente comando di cancellazione evento. Le operazioni che modificano
+dati richiedono POST e token CSRF.
 
 Il modulo riutilizza la validazione di data/ora e URL di `mod_insert_event`, che
 deve essere presente. Per i link è richiesta la colonna `link_aggiuntivi`, già

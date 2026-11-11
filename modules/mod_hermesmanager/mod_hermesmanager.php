@@ -67,7 +67,9 @@ try {
         $evento = $existing ? array_replace($existing, $submitted) : null;
     }
 } catch (\Throwable $e) {
-    $message = 'Operazione non completata. Controllare i dati e riprovare.';
+    $message = $task === 'delete'
+        ? 'Cancellazione dell’evento non riuscita. Nessuna cancellazione parziale è stata salvata. Controllare il log del modulo per il dettaglio.'
+        : 'Operazione non completata. Controllare i dati e riprovare.';
     $messageType = 'danger';
     \Joomla\CMS\Log\Log::add($e->getMessage(), \Joomla\CMS\Log\Log::ERROR, 'mod_hermesmanager');
 }
