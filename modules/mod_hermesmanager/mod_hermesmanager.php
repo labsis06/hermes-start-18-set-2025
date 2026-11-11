@@ -11,6 +11,10 @@ $evento = null;
 $immagini = [];
 $allegati = [];
 $id = $input->getInt('event_id');
+if ($task === '' && $input->getMethod() === 'GET' && $input->getInt('hermes_edit_event') > 0) {
+    $id = $input->getInt('hermes_edit_event');
+    $task = 'load';
+}
 $submitted = [];
 
 $postLimit = ModInsertEventAttachments::bytes((string) ini_get('post_max_size'));

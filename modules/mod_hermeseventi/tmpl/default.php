@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".evento").forEach(evento => {
         evento.addEventListener("click", function(e) {
             // evitare conflitto con click su checkbox o pulsanti
-            if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON" || e.target.closest("button")) return;
+            if (e.target.tagName === "INPUT" || e.target.tagName === "BUTTON" || e.target.closest("button, a")) return;
             evento.classList.toggle("attiva");
         });
     });
@@ -280,6 +280,12 @@ foreach ($immagini as $img) {
 
     <div class="dettagli" style="display: none;">
         <p><strong>ID Evento:</strong> <?php echo nl2br(htmlspecialchars($evento->id)); ?></p>
+        <?php if (!empty($managerMenuId)): ?>
+            <p><a class="btn btn-primary hermes-edit-event" href="<?php echo htmlspecialchars(
+                \Joomla\CMS\Router\Route::_('index.php?Itemid=' . (int) $managerMenuId . '&hermes_edit_event=' . (int) $evento->id, false),
+                ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'
+            ); ?>">Modifica evento</a></p>
+        <?php endif; ?>
         <p><strong>Stazione:</strong> <?php $stazione = $evento->stazione_first ?? '';
          echo nl2br(htmlspecialchars($stazione !== '' ? $stazione : 'ND')); ?>
         </p>
