@@ -9,6 +9,11 @@ Aprire la pagina che contiene il modulo **mod_hermesmanager**, inserire l'ID
 dell'evento (visibile in **Mostra dettagli** nella vcard della homepage) e premere
 **Carica evento**. Il form mostra i valori attualmente salvati.
 
+In alternativa, nei dettagli della vcard premere **Modifica evento**: la pagina
+di gestione si apre con l'evento già caricato, comprese le tre sezioni degli
+allegati. Il parametro GET `hermes_edit_event` serve soltanto a caricare i dati;
+non esegue salvataggi. Il form manuale per cambiare ID resta disponibile.
+
 Si possono aggiungere o correggere informazioni e rimuovere quelle facoltative
 svuotando il campo. **Salva modifiche** aggiorna lo stesso ID, senza creare un
 nuovo evento. Data, ora UTC, tipo e area sono obbligatori. Zero è un valore valido

@@ -7,4 +7,5 @@ $filtro_tipo = $input->getString('tipo', '');
 $ordine = $input->getString('ordine', 'data_desc');
 
 $eventi = ModHermesEventiHelper::getEventi($filtro_tipo, $ordine);
+$managerMenuId = ModHermesEventiHelper::getManagerMenuId((int) $params->get('manager_menu_item', 0));
 require JModuleHelper::getLayoutPath('mod_hermeseventi');
