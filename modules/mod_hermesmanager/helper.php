@@ -3,6 +3,7 @@ defined('_JEXEC') or die;
 
 use Joomla\CMS\Factory;
 require_once dirname(__DIR__) . '/mod_insert_event/helper.php';
+require_once dirname(__DIR__) . '/mod_insert_event/attachments.php';
 
 class ModHermesManagerHelper
 {
@@ -36,13 +37,149 @@ class ModHermesManagerHelper
 
     public static function getImmagini($id_evento)
     {
+        return self::getAllegati((int) $id_evento, 'immagine');
+    }
+
+    private static function gruppoAllegati(string $type): array
+    {
+        if (!isset(ModInsertEventAttachments::GROUPS[$type])) {
+            throw new \InvalidArgumentException('Categoria di allegato non valida.');
+        }
+        return ModInsertEventAttachments::GROUPS[$type];
+    }
+
+    public static function getAllegati(int $eventId, string $type): array
+    {
+        $group = self::gruppoAllegati($type);
         $db = Factory::getDbo();
-        $query = $db->getQuery(true)
-                    ->select('*')
-                    ->from($db->qn('hermes_immagini'))
-                    ->where($db->qn('id_evento') . ' = ' . (int)$id_evento);
-        $db->setQuery($query);
-        return $db->loadAssocList();
+        $query = $db->getQuery(true)->select('*')->from($db->qn($group['table']))
+            ->where($db->qn('id_evento') . ' = ' . $eventId)->order($db->qn('id') . ' ASC');
+        return $db->setQuery($query)->loadAssocList();
+    }
+
+    private static function bloccaEvento(int $id): void
+    {
+        $db = Factory::getDbo();
+        if ($id < 1 || $db->setQuery('SELECT id FROM hermes_eventi WHERE id=' . $id . ' FOR UPDATE')->loadResult() === null) {
+            throw new \DomainException('Evento non trovato. Controllare l’ID.');
+        }
+    }
+
+    private static function trovaAllegato(int $eventId, string $type, int $attachmentId): array
+    {
+        $group = self::gruppoAllegati($type);
+        $db = Factory::getDbo();
+        $query = $db->getQuery(true)->select('*')->from($db->qn($group['table']))
+            ->where($db->qn('id') . ' = ' . $attachmentId)->where($db->qn('id_evento') . ' = ' . $eventId);
+        $record = $db->setQuery($query)->loadAssoc();
+        if (!$record) throw new \DomainException('Allegato non trovato per questo evento.');
+        return $record;
+    }
+
+    /** Dopo il commit: rimuove solo copie locali valide e non condivise. */
+    private static function rimuoviCopiaNonCondivisa(array $record, string $type): string
+    {
+        try {
+            $db = Factory::getDbo();
+            $relative = (string) ($record['percorso_file'] ?? '');
+            if ($relative === '') return '';
+            foreach (ModInsertEventAttachments::GROUPS as $group) {
+                $query = $db->getQuery(true)->select($db->qn('id'))->from($db->qn($group['table']))
+                    ->where($db->qn('percorso_file') . ' = ' . $db->quote($relative));
+                if ($db->setQuery($query, 0, 1)->loadResult() !== null) {
+                    return ' La copia condivisa resta disponibile agli altri allegati.';
+                }
+            }
+            $path = JPATH_ROOT . '/' . $relative;
+            $resolved = realpath($path);
+            if ($resolved === false || !is_file($resolved)) return '';
+            $group = self::gruppoAllegati($type);
+            $directory = realpath(JPATH_ROOT . '/' . $group['directory']);
+            $root = realpath(JPATH_ROOT);
+            if (!$directory || !$root || is_link($path)
+                || !str_starts_with($directory . '/', $root . '/')
+                || !str_starts_with($resolved, $directory . DIRECTORY_SEPARATOR)) {
+                return ' Copia sul server conservata: percorso esterno alla cartella degli allegati.';
+            }
+            if (!@unlink($resolved)) return ' Copia sul server non rimossa: controllare i permessi della cartella.';
+        } catch (\Throwable $e) {
+            try {
+                \Joomla\CMS\Log\Log::add('Pulizia della copia di un allegato non riuscita.', \Joomla\CMS\Log\Log::WARNING, 'mod_hermesmanager');
+            } catch (\Throwable $ignored) {}
+            return ' Copia sul server conservata: pulizia non completata.';
+        }
+        return '';
+    }
+
+    public static function rinominaAllegato(int $eventId, string $type, int $attachmentId, string $name): string
+    {
+        $group = self::gruppoAllegati($type);
+        $name = trim($name);
+        if ($name === '' || $name === '.' || $name === '..' || mb_strlen($name, 'UTF-8') > 255
+            || preg_match('/[\x00-\x1f\x7f\/\\\\]/u', $name)) {
+            throw new \InvalidArgumentException('Inserire un nome valido, senza cartelle o caratteri di controllo (massimo 255 caratteri).');
+        }
+        $db = Factory::getDbo();
+        $db->transactionStart();
+        try {
+            self::bloccaEvento($eventId);
+            self::trovaAllegato($eventId, $type, $attachmentId);
+            $query = $db->getQuery(true)->update($db->qn($group['table']))
+                ->set($db->qn('nome_file') . ' = ' . $db->quote($name))
+                ->where($db->qn('id') . ' = ' . $attachmentId)->where($db->qn('id_evento') . ' = ' . $eventId);
+            $db->setQuery($query)->execute();
+            $db->transactionCommit();
+        } catch (\Throwable $e) { $db->transactionRollback(); throw $e; }
+        return 'Nome dell’allegato aggiornato.';
+    }
+
+    public static function eliminaAllegato(int $eventId, string $type, int $attachmentId): string
+    {
+        $group = self::gruppoAllegati($type);
+        $db = Factory::getDbo();
+        $db->transactionStart();
+        try {
+            self::bloccaEvento($eventId);
+            $record = self::trovaAllegato($eventId, $type, $attachmentId);
+            $query = $db->getQuery(true)->delete($db->qn($group['table']))
+                ->where($db->qn('id') . ' = ' . $attachmentId)->where($db->qn('id_evento') . ' = ' . $eventId);
+            $db->setQuery($query)->execute();
+            $db->transactionCommit();
+        } catch (\Throwable $e) { $db->transactionRollback(); throw $e; }
+        return 'Allegato eliminato dall’evento.' . self::rimuoviCopiaNonCondivisa($record, $type);
+    }
+
+    public static function caricaAllegati(int $eventId, string $type, $fileInput, int $expectedCount = -1, ?int $replaceId = null): string
+    {
+        $group = self::gruppoAllegati($type);
+        $prepared = ModInsertEventAttachments::prepara($fileInput, $expectedCount);
+        if (!$prepared || ($replaceId !== null && count($prepared) !== 1)) {
+            throw new \InvalidArgumentException($replaceId !== null ? 'Selezionare esattamente un file per la sostituzione.' : 'Selezionare almeno un file da caricare.');
+        }
+        foreach ($prepared as $file) {
+            if ($file['field'] !== $type) throw new \InvalidArgumentException('I file selezionati non corrispondono alla categoria.');
+        }
+        $db = Factory::getDbo();
+        $written = [];
+        $old = null;
+        $db->transactionStart();
+        try {
+            self::bloccaEvento($eventId);
+            if ($replaceId !== null) $old = self::trovaAllegato($eventId, $type, $replaceId);
+            ModInsertEventAttachments::salva($eventId, $prepared, $written);
+            if ($old) {
+                $query = $db->getQuery(true)->delete($db->qn($group['table']))
+                    ->where($db->qn('id') . ' = ' . $replaceId)->where($db->qn('id_evento') . ' = ' . $eventId);
+                $db->setQuery($query)->execute();
+            }
+            $db->transactionCommit();
+        } catch (\Throwable $e) {
+            $db->transactionRollback();
+            ModInsertEventAttachments::annulla($written);
+            throw $e;
+        }
+        return $old ? 'Allegato sostituito.' . self::rimuoviCopiaNonCondivisa($old, $type)
+            : 'Caricati ' . count($prepared) . ' allegati nella sezione ' . $group['label'] . '.';
     }
 
     public static function deleteEvento($id)
@@ -123,46 +260,22 @@ class ModHermesManagerHelper
         return "Evento aggiornato con successo.";
     }
 
-    public static function deleteImmagine($img_id)
+    public static function deleteImmagine($img_id, ?int $eventId = null)
     {
-        $db = Factory::getDbo();
-        $query = $db->getQuery(true)->select('*')->from('hermes_immagini')->where('id=' . (int)$img_id);
-        $db->setQuery($query);
-        $img = $db->loadAssoc();
-        if ($img && file_exists(JPATH_ROOT . '/' . $img['percorso_file'])) {
-            unlink(JPATH_ROOT . '/' . $img['percorso_file']);
+        if ($eventId === null) {
+            $db = Factory::getDbo();
+            $eventId = (int) $db->setQuery('SELECT id_evento FROM hermes_immagini WHERE id=' . (int) $img_id)->loadResult();
         }
-        $db->setQuery("DELETE FROM hermes_immagini WHERE id = " . (int)$img_id)->execute();
-        return "Immagine eliminata.";
+        return self::eliminaAllegato($eventId, 'immagine', (int) $img_id);
     }
 
     public static function uploadImmagine($event_id, $file)
     {
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            return "Errore nel caricamento del file.";
-        }
-        $targetDir = 'images/eventi/';
-        $destPath = JPATH_ROOT . '/' . $targetDir;
-        if (!is_dir($destPath)) {
-            mkdir($destPath, 0755, true);
-        }
-        $filename = basename($file['name']);
-        $targetFile = $destPath . $filename;
-        if (!move_uploaded_file($file['tmp_name'], $targetFile)) {
-            return "Impossibile salvare il file.";
-        }
-        $db = Factory::getDbo();
-        $columns = ['id_evento', 'nome_file', 'percorso_file'];
-        $values = [
-            (int)$event_id,
-            $db->quote($filename),
-            $db->quote($targetDir . $filename)
-        ];
-        $query = $db->getQuery(true)
-                    ->insert('hermes_immagini')
-                    ->columns($columns)
-                    ->values(implode(',', $values));
-        $db->setQuery($query)->execute();
-        return "Immagine caricata con successo.";
+        $input = new class($file) {
+            private array $file;
+            public function __construct(array $file) { $this->file = $file; }
+            public function get($name, $default, $filter) { return $name === 'immagine' ? $this->file : $default; }
+        };
+        return self::caricaAllegati((int) $event_id, 'immagine', $input, 1);
     }
 }
